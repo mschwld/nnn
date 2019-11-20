@@ -1,0 +1,244 @@
+.Dd Oct 06, 2019
+.Dt NNN 1
+.Os
+.Sh NAME
+.Nm nnn
+.Nd the missing terminal file manager for X
+.Sh SYNOPSIS
+.Nm
+.Op Ar -a
+.Op Ar -b key
+.Op Ar -c
+.Op Ar -d
+.Op Ar -e name
+.Op Ar -f
+.Op Ar -H
+.Op Ar -i
+.Op Ar -K
+.Op Ar -n
+.Op Ar -p file
+.Op Ar -r
+.Op Ar -s
+.Op Ar -S
+.Op Ar -v
+.Op Ar -h
+.Op Ar PATH
+.Sh DESCRIPTION
+.Nm
+(Nnn's Not Noice) is a performance-optimized, feature-packed fork of noice (http://git.2f30.org/noice/) with seamless desktop integration, simplified navigation, \fInavigate-as-you-type\fR mode with auto select, disk usage analyzer mode, bookmarks, contexts, application launcher, familiar navigation shortcuts, subshell spawning and much more. It remains a simple and efficient file manager that stays out of your way.
+.Pp
+.Nm
+opens the current working directory by default if
+.Ar PATH
+is not specified.
+.Sh KEYBINDS
+.Pp
+Press \fB?\fR in
+.Nm
+to see the list of keybinds.
+.Sh OPTIONS
+.Pp
+.Nm
+supports the following options:
+.Pp
+.Fl a
+        use access time for all operations (default: modification time)
+.Pp
+.Fl "b key"
+        specify bookmark key to open
+.Pp
+.Fl c
+        opener opens files in cli utilities only
+.Pp
+.Fl d
+        detail mode
+.Pp
+.Fl "e name"
+        Load a session by name
+.Pp
+.Fl f
+        run filter as command when the prompt key is pressed
+.Pp
+.Fl H
+        show hidden files
+.Pp
+.Fl i
+        start in navigate-as-you-type mode
+.Pp
+.Fl K
+        test for keybind collision
+.Pp
+.Fl n
+        use case-insensitive version compare to sort files
+.Pp
+.Fl o
+        open files only on Enter key
+.Pp
+.Fl "p file"
+        copy (or \fIpick\fR) selection to file, or stdout if file='-'
+.Pp
+.Fl r
+        show cp, mv progress (Linux-only, needs advcpmv; '^T' shows the progress on BSD/macOS)
+.Pp
+.Fl s
+        use substring match for filters instead of regex
+.Pp
+.Fl S
+        start in disk usage analyzer mode
+.Pp
+.Fl t
+        disable directory auto-select in navigate-as-you-type mode
+.Pp
+.Fl v
+        show version and exit
+.Pp
+.Fl h
+        show program help and exit
+.Sh CONFIGURATION
+.Nm
+uses \fIxdg-open\fR (on Linux) and \fIopen(1)\fR (on macOS) as the desktop opener.
+.Pp
+There is no configuration file. Associated files are stored in \fB${XDG_CONFIG_HOME:-$HOME/.config}/nnn/\fR. Settings work on environment variables. See ENVIRONMENT section below.
+.Sh CONTEXTS
+Contexts serve the purpose of exploring multiple directories simultaneously. 4 contexts
+are available. The status of the contexts are shown in the top left corner:
+.Pp
+- the current context is in reverse video
+.br
+- other active contexts are underlined
+.br
+- rest are inactive
+.Pp
+On context creation, the state of the previous context is copied. Each context remembers its last visited directory.
+.Pp
+Each context can have its own directory color specified. See ENVIRONMENT section below.
+.Sh SESSIONS
+Sessions are a way to save and restore states of work. A session stores the settings and contexts.
+.Pp
+Sessions can be loaded dynamically from within a running
+.Nm
+instance, or with a program option.
+.Pp
+When a session is loaded dynamically, the last working session is saved automatically to a dedicated
+-- "last session" -- session file.
+.Pp
+All the session files are located in the \fB${XDG_CONFIG_HOME:-$HOME/.config}/nnn/sessions\fR directory by the session name.
+"@" is the "last session" file.
+.Sh FILTERS
+Filters support regexes (default) to instantly (search-as-you-type) list the matching
+entries in the current directory.
+.Pp
+Common use cases:
+.Pp
+(1) To list all matches starting with the filter expression, start the expression
+with a '^' (caret) symbol.
+.br
+(2) Type '\\.mkv' to list all MKV files.
+.br
+(3) Use '.*' to match any character (\fIsort of\fR fuzzy search).
+.Pp
+There is a program option to filter entries by substring match instead of regex.
+.Pp
+There is a program option to execute the current filter as a command when the prompt key is pressed.
+.Pp
+In the \fInavigate-as-you-type\fR mode directories are opened in filter mode,
+allowing continuous navigation. Works best with the \fBarrow keys\fR.
+.br
+When there's a unique match and it's a directory,
+.Nm
+auto selects the directory and enters it in this mode.
+.Sh SELECTION
+There are 3 groups of shortcuts to add files to selection:
+.Pp
+(1) add an individual file to selection
+.br
+(2) add a range of files to selection
+.br
+(3) add all files in the current directory to selection
+.Pp
+Selected files are visually indicated by a \fI+\fR before the entries.
+.br
+The selection can now be listed, copied, moved, removed, archived or linked.
+.br
+Absolute paths of the selected files are copied to the temporary file \fB.selection\fR in the config directory. The path is shown in the help and configuration screen. If \fB$NNN_COPIER\fR is set (see ENVIRONMENT section below) the file paths are also copied to the system clipboard.
+.Pp
+Repeat range selection on the same entry to clear selection. It's also possible to edit the current selection.
+.Pp
+Deselecting a single file is not implemented because substantial string processing would be required if thousands of files are selected. It would have been trivial if the selection was limited to a single directory (use a flag for each file and select the files with the flag set). However,
+.Nm
+allows selection across directories making it non-trivial to do that. Also, the buffer used to select is a compact one (no byte wasted) so \fBmemmove\fR() would be required to deselect each intermediate file. Considering these, the alternatives were chosen.
+.Sh FILE SIZE
+The minimum file size unit is byte (B). The rest are K, M, G, T, P, E, Z, Y (powers of 1024), same as the default units in \fIls\fR.
+.Sh ENVIRONMENT
+The SHELL, EDITOR (VISUAL, if defined) and PAGER environment variables take precedence
+when dealing with the !, e and p commands respectively. A single combination to arguments is supported for SHELL and PAGER.
+.Pp
+\fBNNN_BMS:\fR bookmark string as \fIkey_char:location\fR pairs (max 10) separated by
+\fI;\fR:
+.Bd -literal
+    export NNN_BMS='d:~/Documents;u:/home/user/Cam Uploads;D:~/Downloads/'
+
+    NOTE: To go to a bookmark, press the Lead key followed by the bookmark key.
+.Ed
+.Pp
+\fBNNN_PLUG:\fR directly executable plugins as \fIkey_char:location\fR pairs (max 10) separated by
+\fI;\fR:
+.Bd -literal
+    export NNN_PLUG='o:fzy-open;p:mocplay;d:ndiff;m:nmount;t:thumb;i:mediainf'
+
+    NOTE: To run a plugin directly, press \fI:\fR followed by the plugin key.
+.Ed
+.Pp
+    To assign keys to arbitrary non-background cli commands (non-shell-interpreted) and invoke like plugins, add \fI_\fR (underscore) before the command.
+.Bd -literal
+    export NNN_PLUG='x:_chmod +x $NNN;g:_git log;s:_smplayer $NNN;o:fzopen'
+
+    NOTES:
+    1. Use single quotes for $NNN_PLUG so $NNN is not interpreted
+    2. $NNN should be the last argument (IF you want to pass the hovered file name)
+    3. (Again) add \fI_\fR before the command
+.Ed
+.Pp
+\fBNNN_USE_EDITOR:\fR use VISUAL (else EDITOR, preferably CLI, fallback vi) to handle text files.
+.Bd -literal
+    export NNN_USE_EDITOR=1
+.Ed
+.Pp
+\fBNNN_CONTEXT_COLORS:\fR string of color codes for each context, e.g.:
+.Bd -literal
+    export NNN_CONTEXT_COLORS='1234'
+
+    codes: 0-black, 1-red, 2-green, 3-yellow, 4-blue (default), 5-magenta, 6-cyan, 7-white
+.Ed
+.Pp
+\fBNNN_SSHFS_OPTS:\fR pass additional options to sshfs command:
+.Bd -literal
+    export NNN_SSHFS_OPTS='sshfs -o reconnect,idmap=user,cache_timeout=3600'
+
+    NOTE: The options must be preceded by `sshfs` and comma-separated without any space between them.
+.Ed
+.Pp
+\fBNNN_OPENER:\fR specify a custom file opener.
+.Bd -literal
+    export NNN_OPENER=mimeopen
+.Ed
+.Pp
+\fBNNN_IDLE_TIMEOUT:\fR set idle timeout (in seconds) to invoke terminal locker (default: disabled).
+.Pp
+\fBNNN_COPIER:\fR system clipboard copier script. The project page has some sample copier scripts.
+.Pp
+\fBNNN_TRASH:\fR trash (instead of \fIdelete\fR) files to desktop Trash.
+.Bd -literal
+    export NNN_TRASH=1
+.Ed
+.Pp
+\fBNNN:\fR this is a special variable set to the current entry before executing a command from the command prompt or spawning a shell.
+.Sh KNOWN ISSUES
+.Nm
+may not handle keypresses correctly when used with tmux (see issue #104 for more details). Set \fBTERM=xterm-256color\fR to address it.
+.Sh AUTHORS
+.An Arun Prakash Jana Aq Mt engineerarun@gmail.com ,
+.An Lazaros Koromilas Aq Mt lostd@2f30.org ,
+.An Dimitris Papastamos Aq Mt sin@2f30.org .
+.Sh HOME
+.Em https://github.com/jarun/nnn
