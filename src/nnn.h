@@ -183,7 +183,7 @@ static struct key bindings[] = {
 	/* Detailed listing */
 	{ 'd',            SEL_DETAIL },
 	/* File details */
-	{ 'D',            SEL_STATS },
+	{ 'D',            SEL_RM },
 	/* Create archive */
 	{ 'f',            SEL_ARCHIVE },
 	/* List archive */
@@ -223,8 +223,6 @@ static struct key bindings[] = {
 	{ 'w',            SEL_CPMVAS },
 	/* Delete from selection buffer */
 	{ 'X',            SEL_RMMUL },
-	/* Delete currently selected */
-	{ CONTROL('X'),   SEL_RM },
 	/* Open in a custom application */
 	{ CONTROL('O'),   SEL_OPENWITH },
 	/* Create a new file */
