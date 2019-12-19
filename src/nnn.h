@@ -78,7 +78,7 @@ enum action {
 	SEL_SEL,
 	SEL_SELMUL,
 	SEL_SELALL,
-	SEL_SELLST,
+	SEL_SELLIST,
 	SEL_SELEDIT,
 	SEL_CP,
 	SEL_MV,
@@ -89,8 +89,8 @@ enum action {
 	SEL_NEW,
 	SEL_RENAME,
 	SEL_RENAMEMUL,
-	SEL_ARCHIVEMNT,
-	SEL_SSHFS,
+	SEL_ARCHIVEOPS,
+	SEL_REMOTE,
 	SEL_UMOUNT,
 	SEL_HELP,
 	SEL_EXEC,
@@ -163,7 +163,7 @@ static struct key bindings[] = {
 	{ CONTROL('_'),   SEL_LEADER },
 	{ ',',            SEL_LEADER },
 	/* Cycle contexts in forward direction */
-	{ '\t',        SEL_CYCLE },
+	{ '\t',           SEL_CYCLE },
 	/* Cycle contexts in reverse direction */
 	{ KEY_BTAB,       SEL_CYCLER },
 	/* Go to/create context N */
@@ -212,7 +212,7 @@ static struct key bindings[] = {
 	/* Select all files in current dir */
 	{ 'a',            SEL_SELALL },
 	/* Show list of copied files */
-	{ 'M',            SEL_SELLST },
+	{ 'M',            SEL_SELLIST },
 	/* Edit selection buffer */
 	{ 'K',            SEL_SELEDIT },
 	/* Copy from selection buffer */
@@ -233,9 +233,10 @@ static struct key bindings[] = {
 	/* Rename contents of current dir */
 	{ 'r',            SEL_RENAMEMUL },
 	/* Mount an archive */
-	{ 'T',            SEL_ARCHIVEMNT },
+	{ 'o',            SEL_ARCHIVEOPS },
+	{ CONTROL('F'),   SEL_ARCHIVEOPS },
 	/* Connect to server over SSHFS */
-	{ 'c',            SEL_SSHFS },
+	{ 'c',            SEL_REMOTE },
 	/* Disconnect a SSHFS mount point */
 	{ 'u',            SEL_UMOUNT },
 	/* Show help */
@@ -250,7 +251,7 @@ static struct key bindings[] = {
 	{ ':',            SEL_PLUGKEY },
 	{ ';',            SEL_PLUGKEY },
 	/* Run a plugin */
-	{ 'R',            SEL_PLUGIN },
+	{ 'i',            SEL_PLUGIN },
 	{ CONTROL('V'),   SEL_PLUGIN },
 	/* Launcher */
 	{ '=',            SEL_LAUNCH },
@@ -270,5 +271,5 @@ static struct key bindings[] = {
 	{ 'Q',            SEL_QUIT },
 	{ CONTROL('Q'),   SEL_QUIT },
 	{ KEY_MOUSE,      SEL_CLICK },
-	{ 'U',            SEL_SESSIONS },
+	{ 's',            SEL_SESSIONS },
 };

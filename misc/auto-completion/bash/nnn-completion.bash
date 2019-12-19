@@ -5,9 +5,10 @@
 #   Arun Prakash Jana <engineerarun@gmail.com>
 #
 
-_nnn () {
+_nnn ()
+{
     COMPREPLY=()
-    local IFS=$' \n'
+    local IFS=$'\n'
     local cur=$2 prev=$3
     local -a opts
     opts=(
@@ -15,18 +16,22 @@ _nnn () {
         -b
         -c
         -d
-        -f
+        -E
+        -g
         -H
         -i
         -K
         -n
         -o
         -p
+        -Q
         -r
+        -R
         -s
         -S
         -t
         -v
+        -x
         -h
     )
     if [[ $prev == -b ]]; then
@@ -34,9 +39,9 @@ _nnn () {
         COMPREPLY=( $(compgen -W "$bookmarks" -- "$cur") )
     elif [[ $prev == -p ]]; then
         COMPREPLY=( $(compgen -f -d -- "$cur") )
-    elif [[ $prev == -e ]]; then
+    elif [[ $prev == -s ]]; then
         local sessions_dir=${XDG_CONFIG_HOME:-$HOME/.config}/nnn/sessions
-        COMPREPLY=( $(compgen -W "$(ls $sessions_dir)" -- "$cur") )
+        COMPREPLY=( $(cd "$sessions_dir" && compgen -f -d -- "$cur") )
     elif [[ $cur == -* ]]; then
         COMPREPLY=( $(compgen -W "${opts[*]}" -- "$cur") )
     else

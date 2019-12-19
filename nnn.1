@@ -1,4 +1,4 @@
-.Dd Oct 06, 2019
+.Dd Dec 05, 2019
 .Dt NNN 1
 .Os
 .Sh NAME
@@ -10,17 +10,20 @@
 .Op Ar -b key
 .Op Ar -c
 .Op Ar -d
-.Op Ar -e name
-.Op Ar -f
+.Op Ar -E
+.Op Ar -g
 .Op Ar -H
 .Op Ar -i
 .Op Ar -K
 .Op Ar -n
 .Op Ar -p file
+.Op Ar -Q
 .Op Ar -r
-.Op Ar -s
+.Op Ar -R
+.Op Ar -s name
 .Op Ar -S
 .Op Ar -v
+.Op Ar -x
 .Op Ar -h
 .Op Ar PATH
 .Sh DESCRIPTION
@@ -53,11 +56,11 @@ supports the following options:
 .Fl d
         detail mode
 .Pp
-.Fl "e name"
-        Load a session by name
+.Fl E
+        use $EDITOR for internal undetached edits
 .Pp
-.Fl f
-        run filter as command when the prompt key is pressed
+.Fl g
+        use regex filters instead of substring match
 .Pp
 .Fl H
         show hidden files
@@ -77,11 +80,17 @@ supports the following options:
 .Fl "p file"
         copy (or \fIpick\fR) selection to file, or stdout if file='-'
 .Pp
+.Fl Q
+        disable confirmation when quitting program with multiple active contexts
+.Pp
 .Fl r
         show cp, mv progress (Linux-only, needs advcpmv; '^T' shows the progress on BSD/macOS)
 .Pp
-.Fl s
-        use substring match for filters instead of regex
+.Fl R
+        disable rollover at edges
+.Pp
+.Fl "s name"
+        load a session by name
 .Pp
 .Fl S
         start in disk usage analyzer mode
@@ -91,6 +100,9 @@ supports the following options:
 .Pp
 .Fl v
         show version and exit
+.Pp
+.Fl x
+        show notis on selection cp, mv, rm completion; copy path to system clipboard on select
 .Pp
 .Fl h
         show program help and exit
@@ -125,10 +137,9 @@ When a session is loaded dynamically, the last working session is saved automati
 All the session files are located in the \fB${XDG_CONFIG_HOME:-$HOME/.config}/nnn/sessions\fR directory by the session name.
 "@" is the "last session" file.
 .Sh FILTERS
-Filters support regexes (default) to instantly (search-as-you-type) list the matching
-entries in the current directory.
+Filters are substrings to find matching entries in the current directory instantly (search-as-you-type). There is a program option to use regex filters.
 .Pp
-Common use cases:
+Common regex use cases:
 .Pp
 (1) To list all matches starting with the filter expression, start the expression
 with a '^' (caret) symbol.
@@ -137,36 +148,26 @@ with a '^' (caret) symbol.
 .br
 (3) Use '.*' to match any character (\fIsort of\fR fuzzy search).
 .Pp
-There is a program option to filter entries by substring match instead of regex.
-.Pp
-There is a program option to execute the current filter as a command when the prompt key is pressed.
-.Pp
 In the \fInavigate-as-you-type\fR mode directories are opened in filter mode,
 allowing continuous navigation. Works best with the \fBarrow keys\fR.
 .br
 When there's a unique match and it's a directory,
 .Nm
-auto selects the directory and enters it in this mode.
+auto selects the directory and enters it in this mode. Use the relevant program option to disable this behaviour.
 .Sh SELECTION
-There are 3 groups of shortcuts to add files to selection:
+There are 3 groups of keybinds to add files to selection:
 .Pp
-(1) add an individual file to selection
+(1) hovered file selection toggle (deselects if '+' is visible before the entry, else adds to selection)
 .br
-(2) add a range of files to selection
+(2) add a range of files to selection (repeat the range key on the same entry twice to clear selection completely)
 .br
 (3) add all files in the current directory to selection
 .Pp
-Selected files are visually indicated by a \fI+\fR before the entries.
-.br
-The selection can now be listed, copied, moved, removed, archived or linked.
-.br
-Absolute paths of the selected files are copied to the temporary file \fB.selection\fR in the config directory. The path is shown in the help and configuration screen. If \fB$NNN_COPIER\fR is set (see ENVIRONMENT section below) the file paths are also copied to the system clipboard.
+A selection can be listed, edited, copied, moved, removed, archived or linked.
 .Pp
-Repeat range selection on the same entry to clear selection. It's also possible to edit the current selection.
+Absolute paths of the selected files are copied to \fB.selection\fR file in the config directory.
 .Pp
-Deselecting a single file is not implemented because substantial string processing would be required if thousands of files are selected. It would have been trivial if the selection was limited to a single directory (use a flag for each file and select the files with the flag set). However,
-.Nm
-allows selection across directories making it non-trivial to do that. Also, the buffer used to select is a compact one (no byte wasted) so \fBmemmove\fR() would be required to deselect each intermediate file. Considering these, the alternatives were chosen.
+To edit the selection use the _edit selection_ key. Use this key to remove a file from selection after you navigate away from its directory. Editing doesn't end the selection mode. You can add more files to the selection and edit the list again.
 .Sh FILE SIZE
 The minimum file size unit is byte (B). The rest are K, M, G, T, P, E, Z, Y (powers of 1024), same as the default units in \fIls\fR.
 .Sh ENVIRONMENT
@@ -184,18 +185,19 @@ when dealing with the !, e and p commands respectively. A single combination to 
 \fBNNN_PLUG:\fR directly executable plugins as \fIkey_char:location\fR pairs (max 10) separated by
 \fI;\fR:
 .Bd -literal
-    export NNN_PLUG='o:fzy-open;p:mocplay;d:ndiff;m:nmount;t:thumb;i:mediainf'
+    export NNN_PLUG='o:fzopen;p:mocplay;d:diffs;m:nmount;t:imgthumb;i:mediainf'
 
     NOTE: To run a plugin directly, press \fI:\fR followed by the plugin key.
 .Ed
 .Pp
-    To assign keys to arbitrary non-background cli commands (non-shell-interpreted) and invoke like plugins, add \fI_\fR (underscore) before the command.
+    To assign keys to arbitrary non-background non-shell-interpreted cli
+    commands and invoke like plugins, add \fI_\fR (underscore) before the command.
 .Bd -literal
-    export NNN_PLUG='x:_chmod +x $NNN;g:_git log;s:_smplayer $NNN;o:fzopen'
+    export NNN_PLUG='x:_chmod +x $nnn;g:_git log;s:_smplayer $nnn;o:fzopen;m:nmount'
 
     NOTES:
-    1. Use single quotes for $NNN_PLUG so $NNN is not interpreted
-    2. $NNN should be the last argument (IF you want to pass the hovered file name)
+    1. Use single quotes for $NNN_PLUG so $nnn is not interpreted
+    2. $nnn should be the last argument (IF you want to pass the hovered file name)
     3. (Again) add \fI_\fR before the command
 .Ed
 .Pp
@@ -218,14 +220,21 @@ when dealing with the !, e and p commands respectively. A single combination to 
     NOTE: The options must be preceded by `sshfs` and comma-separated without any space between them.
 .Ed
 .Pp
+\fBNNN_RCLONE_OPTS:\fR pass additional options to rclone command:
+.Bd -literal
+    export NNN_RCLONE_OPTS='rclone mount --read-only --no-checksum'
+
+    NOTE: The options must be preceded by `rclone` and max 5 flags are supported.
+.Ed
+.Pp
 \fBNNN_OPENER:\fR specify a custom file opener.
 .Bd -literal
-    export NNN_OPENER=mimeopen
+    export NNN_OPENER=nuke
+
+    NOTE: `nuke` is a file opener available in plugin repository
 .Ed
 .Pp
 \fBNNN_IDLE_TIMEOUT:\fR set idle timeout (in seconds) to invoke terminal locker (default: disabled).
-.Pp
-\fBNNN_COPIER:\fR system clipboard copier script. The project page has some sample copier scripts.
 .Pp
 \fBNNN_TRASH:\fR trash (instead of \fIdelete\fR) files to desktop Trash.
 .Bd -literal
