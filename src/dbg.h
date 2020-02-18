@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2014-2016, Lazaros Koromilas <lostd@2f30.org>
  * Copyright (C) 2014-2016, Dimitris Papastamos <sin@2f30.org>
- * Copyright (C) 2016-2019, Arun Prakash Jana <engineerarun@gmail.com>
+ * Copyright (C) 2016-2020, Arun Prakash Jana <engineerarun@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,7 +41,7 @@ static int xprintf(int fd, const char *fmt, ...)
 
 	va_start(ap, fmt);
 	r = vsnprintf(buf, sizeof(buf), fmt, ap);
-	if (r > 0)
+	if (r > 0 && (unsigned int)r < sizeof(buf))
 		r = write(fd, buf, r);
 	va_end(ap);
 	return r;
@@ -79,7 +79,7 @@ static void disabledbg(void)
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
 
-#define DPRINTF_D(x) xprintf(DEBUG_FD, "ln " TOSTRING(__LINE__) ": " #x "=%d\n", x, __LINE__)
+#define DPRINTF_D(x) xprintf(DEBUG_FD, "ln " TOSTRING(__LINE__) ": " #x "=%d\n", x)
 #define DPRINTF_U(x) xprintf(DEBUG_FD, "ln " TOSTRING(__LINE__) ": " #x "=%u\n", x)
 #define DPRINTF_S(x) xprintf(DEBUG_FD, "ln " TOSTRING(__LINE__) ": " #x "=%s\n", x)
 #define DPRINTF_P(x) xprintf(DEBUG_FD, "ln " TOSTRING(__LINE__) ": " #x "=%p\n", x)

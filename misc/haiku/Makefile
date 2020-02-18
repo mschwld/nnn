@@ -1,7 +1,7 @@
 VERSION = $(shell grep -m1 VERSION $(SRC) | cut -f 2 -d'"')
 
-PREFIX ?= /usr/local
-MANPREFIX ?= $(PREFIX)/share/man
+PREFIX ?= /boot/system/non-packaged
+MANPREFIX ?= $(PREFIX)/documentation/man
 STRIP ?= strip
 PKG_CONFIG ?= pkg-config
 INSTALL ?= install
@@ -28,6 +28,7 @@ endif
 ifeq ($(O_DEBUG),1)
 	CPPFLAGS += -DDBGMODE
 	CFLAGS += -g
+	LDLIBS += -lrt
 endif
 
 ifeq ($(O_NORL),1)
@@ -47,10 +48,6 @@ ifeq ($(O_NOLOC),1)
 	CPPFLAGS += -DNOLOCALE
 endif
 
-ifeq ($(O_NOMOUSE),1)
-	CPPFLAGS += -DNOMOUSE
-endif
-
 ifeq ($(shell $(PKG_CONFIG) ncursesw && echo 1),1)
 	CFLAGS_CURSES ?= $(shell $(PKG_CONFIG) --cflags ncursesw)
 	LDLIBS_CURSES ?= $(shell $(PKG_CONFIG) --libs   ncursesw)
@@ -61,11 +58,17 @@ else
 	LDLIBS_CURSES ?= -lncurses
 endif
 
+ifeq ($(shell uname -s), Haiku)
+	LDLIBS_HAIKU ?= -lstdc++ -lbe
+	SRC_HAIKU ?= misc/haiku/nm.cpp
+	OBJS_HAIKU ?= misc/haiku/nm.o
+endif
+
 CFLAGS += -Wall -Wextra
 CFLAGS += $(CFLAGS_OPTIMIZATION)
 CFLAGS += $(CFLAGS_CURSES)
 
-LDLIBS += $(LDLIBS_CURSES)
+LDLIBS += $(LDLIBS_CURSES) $(LDLIBS_HAIKU)
 
 # static compilation needs libgpm development package
 ifeq ($(O_STATIC),1)
@@ -77,11 +80,20 @@ DISTFILES = src nnn.1 Makefile README.md LICENSE
 SRC = src/nnn.c
 HEADERS = src/nnn.h
 BIN = nnn
+OBJS := nnn.o $(OBJS_HAIKU)
 
 all: $(BIN)
 
-$(BIN): $(SRC) $(HEADERS)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ $< $(LDLIBS)
+ifeq ($(shell uname -s), Haiku)
+$(OBJS_HAIKU): $(SRC_HAIKU)
+	$(CC) -c $(CPPFLAGS) $(CFLAGS) -o $@ $<
+endif
+
+nnn.o: $(SRC) $(HEADERS)
+	$(CC) -c $(CPPFLAGS) $(CFLAGS) -o $@ $<
+
+$(BIN): $(OBJS)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 # targets for backwards compatibility
 debug: $(BIN)
@@ -108,6 +120,8 @@ static:
 dist:
 	mkdir -p nnn-$(VERSION)
 	$(CP) -r $(DISTFILES) nnn-$(VERSION)
+	mkdir -p nnn-$(VERSION)/misc
+	$(CP) -r misc/haiku nnn-$(VERSION)/misc
 	tar -cf - nnn-$(VERSION) | gzip > nnn-$(VERSION).tar.gz
 	$(RM) -r nnn-$(VERSION)
 
@@ -121,8 +135,8 @@ upload-local: sign static
 	curl -XPOST 'https://uploads.github.com/repos/jarun/nnn/releases/$(ID)/assets?name=nnn-$(VERSION).tar.gz.sig' \
 	    -H 'Authorization: token $(NNN_SIG_UPLOAD_TOKEN)' -H 'Content-Type: application/pgp-signature' \
 	    --upload-file nnn-$(VERSION).tar.gz.sig
-	tar -zcf $(BIN)-static-$(VERSION).x86-64.tar.gz $(BIN)-static
-	curl -XPOST 'https://uploads.github.com/repos/jarun/nnn/releases/$(ID)/assets?name=$(BIN)-static-$(VERSION).x86-64.tar.gz' \
+	tar -cf $(BIN)-static-$(VERSION).x86-64.tar.gz $(BIN)-static
+	curl -XPOST 'https://uploads.github.com/repos/jarun/nnn/releases/$(ID)/assets?name=nnn-$(VERSION)-static-$(VERSION).x86-64.tar.gz' \
 	    -H 'Authorization: token $(NNN_SIG_UPLOAD_TOKEN)' -H 'Content-Type: application/x-sharedlib' \
 	    --upload-file $(BIN)-static-$(VERSION).x86-64.tar.gz
 

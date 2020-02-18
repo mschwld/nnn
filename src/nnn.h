@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2014-2016, Lazaros Koromilas <lostd@2f30.org>
  * Copyright (C) 2014-2016, Dimitris Papastamos <sin@2f30.org>
- * Copyright (C) 2016-2019, Arun Prakash Jana <engineerarun@gmail.com>
+ * Copyright (C) 2016-2020, Arun Prakash Jana <engineerarun@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -52,8 +52,7 @@ enum action {
 	SEL_CDBEGIN,
 	SEL_CDLAST,
 	SEL_CDROOT,
-	SEL_VISIT,
-	SEL_LEADER,
+	SEL_BOOKMARK,
 	SEL_CYCLE,
 	SEL_CYCLER,
 	SEL_CTX1,
@@ -63,50 +62,43 @@ enum action {
 	SEL_PIN,
 	SEL_FLTR,
 	SEL_MFLTR,
-	SEL_TOGGLEDOT,
+	SEL_HIDDEN,
 	SEL_DETAIL,
 	SEL_STATS,
+	SEL_CHMODX,
 	SEL_ARCHIVE,
-	SEL_ARCHIVELS,
-	SEL_EXTRACT,
-	SEL_FSIZE,  /* file size */
-	SEL_ASIZE,  /* apparent size */
-	SEL_BSIZE,  /* block size */
-	SEL_EXTN,   /* order by extension */
-	SEL_MTIME,
+	SEL_SORT,
 	SEL_REDRAW,
 	SEL_SEL,
 	SEL_SELMUL,
 	SEL_SELALL,
-	SEL_SELLIST,
 	SEL_SELEDIT,
 	SEL_CP,
 	SEL_MV,
 	SEL_CPMVAS,
-	SEL_RMMUL,
 	SEL_RM,
 	SEL_OPENWITH,
 	SEL_NEW,
 	SEL_RENAME,
 	SEL_RENAMEMUL,
-	SEL_ARCHIVEOPS,
 	SEL_REMOTE,
 	SEL_UMOUNT,
 	SEL_HELP,
-	SEL_EXEC,
-	SEL_SHELL,
-	SEL_PLUGKEY,
+	SEL_EDIT,
 	SEL_PLUGIN,
+	SEL_SHELL,
 	SEL_LAUNCH,
 	SEL_RUNCMD,
-	SEL_RUNEDIT,
-	SEL_RUNPAGE,
 	SEL_LOCK,
 	SEL_SESSIONS,
+	SEL_AUTONEXT,
 	SEL_QUITCTX,
 	SEL_QUITCD,
 	SEL_QUIT,
+	SEL_QUITFAIL,
+#ifndef NOMOUSE
 	SEL_CLICK,
+#endif
 };
 
 /* Associate a pressed key to an action */
@@ -157,11 +149,9 @@ static struct key bindings[] = {
 	{ '-',            SEL_CDLAST },
 	/* Go to / */
 	{ '`',            SEL_CDROOT },
-	/* Visit marked directory */
-	{ CONTROL('B'),   SEL_VISIT },
 	/* Leader key */
-	{ CONTROL('_'),   SEL_LEADER },
-	{ ',',            SEL_LEADER },
+	{ ',',            SEL_BOOKMARK },
+	{ CONTROL('_'),   SEL_BOOKMARK },
 	/* Cycle contexts in forward direction */
 	{ '\t',           SEL_CYCLE },
 	/* Cycle contexts in reverse direction */
@@ -172,37 +162,28 @@ static struct key bindings[] = {
 	{ '3',            SEL_CTX3 },
 	{ '4',            SEL_CTX4 },
 	/* Mark a path to visit later */
-	{ 'b',            SEL_PIN },
+	/*{ ',',            SEL_PIN },*/
 	/* Filter */
 	{ '/',            SEL_FLTR },
 	/* Toggle filter mode */
-	{ KEY_IC,         SEL_MFLTR },
 	{ CONTROL('N'),   SEL_MFLTR },
 	/* Toggle hide .dot files */
-	{ '.',            SEL_TOGGLEDOT },
+	{ '.',            SEL_HIDDEN },
+	{ KEY_F(5),       SEL_HIDDEN },
 	/* Detailed listing */
 	{ 'd',            SEL_DETAIL },
 	/* File details */
-	{ 'D',            SEL_RMMUL },
+	{ 'f',            SEL_STATS },
+	{ CONTROL('F'),   SEL_STATS },
+	/* Toggle executable status */
+	{ '*',            SEL_CHMODX },
 	/* Create archive */
-	{ 'f',            SEL_ARCHIVE },
-	/* List archive */
-	{ 'F',            SEL_ARCHIVELS },
-	/* Extract archive */
-	{ CONTROL('F'),   SEL_EXTRACT },
-	/* Toggle sort by size */
-	{ 'z',            SEL_FSIZE },
-	/* Sort by apparent size including dir contents */
-	{ 'A',            SEL_ASIZE },
-	/* Sort by total block count including dir contents */
-	{ 'S',            SEL_BSIZE },
-	/* Sort by file extension */
-	{ 'E',            SEL_EXTN },
-	/* Toggle sort by time */
-	{ 't',            SEL_MTIME },
+	{ 'z',            SEL_ARCHIVE },
+	/* Sort toggles */
+	{ 't',            SEL_SORT },
+	{ CONTROL('T'),   SEL_SORT },
 	/* Redraw window */
 	{ CONTROL('L'),   SEL_REDRAW },
-	{ KEY_F(5),       SEL_REDRAW },
 	/* Select current file path */
 	{ CONTROL('J'),   SEL_SEL },
 	{ ' ',            SEL_SEL },
@@ -211,63 +192,62 @@ static struct key bindings[] = {
 	{ CONTROL('K'),   SEL_SELMUL },
 	/* Select all files in current dir */
 	{ 'a',            SEL_SELALL },
-	/* Show list of copied files */
-	{ 'M',            SEL_SELLIST },
-	/* Edit selection buffer */
-	{ 'K',            SEL_SELEDIT },
+	/* List, edit selection */
+	{ 'E',            SEL_SELEDIT },
 	/* Copy from selection buffer */
-	{ 'P',            SEL_CP },
+	{ 'p',            SEL_CP },
+	{ CONTROL('P'),   SEL_CP },
 	/* Move from selection buffer */
-	{ 'V',            SEL_MV },
+	{ 'v',            SEL_MV },
+	{ CONTROL('V'),   SEL_MV },
 	/* Copy/move from selection buffer and rename */
 	{ 'w',            SEL_CPMVAS },
+	{ CONTROL('W'),   SEL_CPMVAS },
+	/* Delete from selection buffer */
+	{ 'D',            SEL_RM },
+	{ CONTROL('X'),   SEL_RM },
 	/* Open in a custom application */
+	{ 'o',            SEL_OPENWITH },
 	{ CONTROL('O'),   SEL_OPENWITH },
 	/* Create a new file */
 	{ 'n',            SEL_NEW },
 	/* Show rename prompt */
 	{ CONTROL('R'),   SEL_RENAME },
-	{ KEY_F(2),       SEL_RENAME },
 	/* Rename contents of current dir */
 	{ 'r',            SEL_RENAMEMUL },
-	/* Mount an archive */
-	{ 'o',            SEL_ARCHIVEOPS },
-	{ CONTROL('F'),   SEL_ARCHIVEOPS },
 	/* Connect to server over SSHFS */
 	{ 'c',            SEL_REMOTE },
 	/* Disconnect a SSHFS mount point */
 	{ 'u',            SEL_UMOUNT },
 	/* Show help */
 	{ '?',            SEL_HELP },
-	/* Execute file */
-	{ 'C',            SEL_EXEC },
+	/* Edit in EDITOR */
+	{ 'e',            SEL_EDIT },
+	/* Run a plugin */
+	{ 'x',            SEL_PLUGIN },
+	{ CONTROL('S'),   SEL_PLUGIN },
 	/* Run command */
 	{ '!',            SEL_SHELL },
 	{ CONTROL(']'),   SEL_SHELL },
-	/* Plugin key */
-	{ 'x',            SEL_PLUGKEY },
-	{ ':',            SEL_PLUGKEY },
-	{ ';',            SEL_PLUGKEY },
-	/* Run a plugin */
-	{ 'i',            SEL_PLUGIN },
-	{ CONTROL('V'),   SEL_PLUGIN },
 	/* Launcher */
 	{ '=',            SEL_LAUNCH },
 	/* Run a command */
 	{ ']',            SEL_RUNCMD },
-	{ CONTROL('P'),   SEL_RUNCMD },
-	/* Open in EDITOR or PAGER */
-	{ 'e',            SEL_RUNEDIT },
-	{ 'p',            SEL_RUNPAGE },
 	/* Lock screen */
-	{ 'L',            SEL_LOCK },
+	{ '0',            SEL_LOCK },
+	/* Manage sessions */
+	{ 's',            SEL_SESSIONS },
+	/* Quit a context */
+	{ '+',            SEL_AUTONEXT },
 	/* Quit a context */
 	{ 'q',            SEL_QUITCTX },
 	/* Change dir on quit */
 	{ CONTROL('G'),   SEL_QUITCD },
 	/* Quit */
-	{ 'Q',            SEL_QUIT },
 	{ CONTROL('Q'),   SEL_QUIT },
+	/* Quit with an error code */
+	{ 'Q',            SEL_QUITFAIL },
+#ifndef NOMOUSE
 	{ KEY_MOUSE,      SEL_CLICK },
-	{ 's',            SEL_SESSIONS },
+#endif
 };
