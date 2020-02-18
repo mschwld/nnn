@@ -195,10 +195,10 @@ static struct key bindings[] = {
 	/* List, edit selection */
 	{ 'E',            SEL_SELEDIT },
 	/* Copy from selection buffer */
-	{ 'p',            SEL_CP },
+	{ 'P',            SEL_CP },
 	{ CONTROL('P'),   SEL_CP },
 	/* Move from selection buffer */
-	{ 'v',            SEL_MV },
+	{ 'V',            SEL_MV },
 	{ CONTROL('V'),   SEL_MV },
 	/* Copy/move from selection buffer and rename */
 	{ 'w',            SEL_CPMVAS },
