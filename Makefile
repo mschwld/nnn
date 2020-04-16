@@ -2,6 +2,7 @@ VERSION = $(shell grep -m1 VERSION $(SRC) | cut -f 2 -d'"')
 
 PREFIX ?= /usr/local
 MANPREFIX ?= $(PREFIX)/share/man
+DESKTOPPREFIX ?= $(PREFIX)/share/applications
 STRIP ?= strip
 PKG_CONFIG ?= pkg-config
 INSTALL ?= install
@@ -51,6 +52,10 @@ ifeq ($(O_NOMOUSE),1)
 	CPPFLAGS += -DNOMOUSE
 endif
 
+ifeq ($(O_NOBATCH),1)
+	CPPFLAGS += -DNOBATCH
+endif
+
 ifeq ($(shell $(PKG_CONFIG) ncursesw && echo 1),1)
 	CFLAGS_CURSES ?= $(shell $(PKG_CONFIG) --cflags ncursesw)
 	LDLIBS_CURSES ?= $(shell $(PKG_CONFIG) --libs   ncursesw)
@@ -77,6 +82,7 @@ DISTFILES = src nnn.1 Makefile README.md LICENSE
 SRC = src/nnn.c
 HEADERS = src/nnn.h
 BIN = nnn
+DESKTOPFILE = misc/desktop/nnn.desktop
 
 all: $(BIN)
 
@@ -87,6 +93,13 @@ $(BIN): $(SRC) $(HEADERS)
 debug: $(BIN)
 norl: $(BIN)
 noloc: $(BIN)
+
+install-desktop: $(DESKTOPFILE)
+	$(INSTALL) -m 0755 -d $(DESTDIR)$(DESKTOPPREFIX)
+	$(INSTALL) -m 0644 $(DESKTOPFILE) $(DESTDIR)$(DESKTOPPREFIX)
+
+uninstall-desktop:
+	$(RM) $(DESTDIR)$(DESKTOPPREFIX)/$(DESKTOPFILE)
 
 install: all
 	$(INSTALL) -m 0755 -d $(DESTDIR)$(PREFIX)/bin
@@ -127,9 +140,8 @@ upload-local: sign static
 	    --upload-file $(BIN)-static-$(VERSION).x86-64.tar.gz
 
 clean:
-	$(RM) -f $(BIN) nnn-$(VERSION).tar.gz *.sig \
-	    $(BIN)-static $(BIN)-static-$(VERSION).x86-64.tar.gz
+	$(RM) -f $(BIN) nnn-$(VERSION).tar.gz *.sig $(BIN)-static $(BIN)-static-$(VERSION).x86-64.tar.gz
 
 skip: ;
 
-.PHONY: all install uninstall strip static dist sign upload-local clean
+.PHONY: all install uninstall strip static dist sign upload-local clean install-desktop uninstall-desktop

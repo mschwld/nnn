@@ -12,13 +12,14 @@ _nnn ()
     local cur=$2 prev=$3
     local -a opts
     opts=(
-        -a
         -A
         -b
         -c
         -d
         -e
         -E
+        -f
+        -F
         -g
         -H
         -K
@@ -31,7 +32,7 @@ _nnn ()
         -s
         -S
         -t
-        -v
+        -T
         -V
         -x
         -h
@@ -46,6 +47,9 @@ _nnn ()
         COMPREPLY=( $(cd "$sessions_dir" && compgen -f -d -- "$cur") )
     elif [[ $prev == -t ]]; then
         return 1
+    elif [[ $prev == -T ]]; then
+        local keys=$(echo "a d e r s t v" | awk -v RS=' ' '{print $0}')
+        COMPREPLY=( $(compgen -W "$keys" -- "$cur") )
     elif [[ $cur == -* ]]; then
         COMPREPLY=( $(compgen -W "${opts[*]}" -- "$cur") )
     else

@@ -10,13 +10,15 @@
 
 Plugins extend the capabilities of `nnn`. They are _executable_ scripts (or binaries) which `nnn` can communicate with and trigger. This mechanism fits perfectly with the fundamental design to keep the core file manager lean and fast, by delegating repetitive (but not necessarily file manager-specific) tasks to the plugins.
 
-`nnn` is language-agnostic when it comes to plugins. You can write a plugin in any (scripting) language you are comfortable in!
+`nnn` is _**language-agnostic**_ when it comes to plugins. You can write a plugin in any (scripting) language you are comfortable in!
 
 ## Installing plugins
 
 The following command installs or updates (after backup) all plugins:
 
-    curl -Ls https://raw.githubusercontent.com/jarun/nnn/master/plugins/getplugs | sh
+```sh
+curl -Ls https://raw.githubusercontent.com/jarun/nnn/master/plugins/getplugs | sh
+```
 
 Plugins are installed to `${XDG_CONFIG_HOME:-$HOME/.config}/nnn/plugins`.
 
@@ -24,7 +26,7 @@ Plugins are installed to `${XDG_CONFIG_HOME:-$HOME/.config}/nnn/plugins`.
 
 | Plugin (a-z) | Description | Lang | Deps |
 | --- | --- | --- | --- |
-| autojump | Navigate to dir/path (**autojump stores navigation patterns**) | sh | autojump |
+| autojump | Navigate to dir/path | sh | autojump |
 | boom | Play random music from dir | sh | [moc](http://moc.daper.net/) |
 | dups | List non-empty duplicate files in current dir | sh | find, md5sum,<br>sort uniq xargs |
 | chksum | Create and verify checksums | sh | md5sum,<br>sha256sum |
@@ -33,6 +35,7 @@ Plugins are installed to `${XDG_CONFIG_HOME:-$HOME/.config}/nnn/plugins`.
 | fzcd | Change to the directory of a fuzzy-selected file/dir | sh | fzf/fzy<br>fd/fdfind/find |
 | fzhist | Fuzzy-select a cmd from history, edit in `$EDITOR` and run | sh | fzf/fzy |
 | fzopen | Fuzzy find a file in dir subtree and edit or open | sh | fzf/fzy, xdg-open |
+| fzz | Change to any directory in the z database with fzf/fzy | sh | fzf/fzy, z |
 | getplugs | Update plugins | sh | curl |
 | gutenread | Browse, download, read from Project Gutenberg | sh | curl, unzip, w3m<br>[epr](https://github.com/wustho/epr) (optional) |
 | hexview | View a file in hex in `$PAGER` | sh | xxd |
@@ -46,8 +49,9 @@ Plugins are installed to `${XDG_CONFIG_HOME:-$HOME/.config}/nnn/plugins`.
 | mediainf | Show media information | sh | mediainfo |
 | moclyrics | Show lyrics of the track playing in moc | sh | [ddgr](https://github.com/jarun/ddgr), [moc](http://moc.daper.net/) |
 | mocplay | Append (and/or play) selection/dir/file in moc | sh | [moc](http://moc.daper.net/) |
+| mp3conv | Extract audio from multimedia as mp3 | sh | ffmpeg |
 | nmount | Toggle mount status of a device as normal user | sh | pmount, udisks2 |
-| nuke | Sample file opener (CLI-only by default) | sh | various |
+| nuke | Sample file opener (CLI-only by default) | sh | _see in-file docs_ |
 | oldbigfile | List large files by access time | sh | find, sort |
 | organize | Auto-organize files in directories by file type | sh | file |
 | pdfread | Read a PDF or text file aloud | sh | pdftotext, mpv,<br>pico2wave |
@@ -64,22 +68,27 @@ Plugins are installed to `${XDG_CONFIG_HOME:-$HOME/.config}/nnn/plugins`.
 | upload | Paste text to ix.io, upload binary to file.io | sh | curl, jq, tr |
 | vidthumb | Show video thumbnails in terminal | sh | [ffmpegthumbnailer](https://github.com/dirkvdb/ffmpegthumbnailer),<br>[lsix](https://github.com/hackerb9/lsix) |
 | wall | Set wallpaper or change colorscheme | sh | nitrogen/pywal |
+| x2sel | Copy `\n`-separated file list from system clipboard to sel | sh | _see in-file docs_ |
 
 ## Invoking a plugin
 
 Use the plugin shortcut (<kbd>;key</kbd> or <kbd>^Skey</kbd>) to list the defined plugin keys and press the required key. E.g., with the below config:
 
-    export NNN_PLUG='o:fzopen;p:mocplay;d:diffs;m:nmount;n:notes;v:imgviu;t:imgthumb'
+```sh
+export NNN_PLUG='o:fzopen;p:mocplay;d:diffs;m:nmount;n:notes;v:imgviu;t:imgthumb'
+```
 
 Plugin `fzopen` can be run with the keybind <kbd>;o</kbd>, `mocplay` can be run with <kbd>;p</kbd> and so on... The key vs. plugin pairs are shown in the help and config screen.
 
-A maximum of 15 keys can be defined. To select and invoke a plugin from the plugin directory, press <kbd>Enter</kbd> (to _enter_ the plugin dir) after the plugin shortcut.
+To select and invoke a plugin from the plugin directory, press <kbd>Enter</kbd> (to _enter_ the plugin dir) after the plugin shortcut.
 
 #### Skip directory refresh after running a plugin
 
 `nnn` refreshes the directory after running a plugin to reflect any changes by the plugin. To disable this (say while running the `mediainfo` plugin on some filtered files), add a `-` before the plugin name:
 
-    export NNN_PLUG='m:-mediainfo'
+```sh
+export NNN_PLUG='m:-mediainfo'
+```
 
 Now `nnn` will not refresh the directory after running the `mediainfo` plugin.
 
@@ -89,7 +98,9 @@ To assign keys to arbitrary non-background, non-shell-interpreted cli commands a
 
 For example:
 
-    export NNN_PLUG='x:_chmod +x $nnn;g:_git log;s:_smplayer $nnn;o:fzopen'
+```sh
+export NNN_PLUG='x:_chmod +x $nnn;g:_git log;s:_smplayer $nnn;o:fzopen'
+```
 
 Now <kbd>;x</kbd> can be used to make a file executable, <kbd>;g</kbd> can be used to the git log of a git project directory, <kbd>;s</kbd> can be used to preview a partially downloaded media file.
 
@@ -97,7 +108,9 @@ Now <kbd>;x</kbd> can be used to make a file executable, <kbd>;g</kbd> can be us
 
 `nnn` waits for user confirmation (the prompt `Press Enter to continue`) after it executes a command as plugin (unlike plugins which can add a `read` to wait). To skip this, add a `*` after the command. For example:
 
-    export NNN_PLUG='s:_smplayer $nnn*;n:-_vim /home/vaio/Dropbox/Public/synced_note*'
+```sh
+export NNN_PLUG='s:_smplayer $nnn*;n:-_vim /home/vaio/Dropbox/Public/synced_note*'
+```
 
 Now there will be no prompt after <kbd>;s</kbd> and <kbd>;n</kbd>.
 
@@ -105,7 +118,9 @@ Now there will be no prompt after <kbd>;s</kbd> and <kbd>;n</kbd>.
 
 To run a GUI app as plugin, add a `|` after `_`. For example:
 
-    export NNN_PLUG='m:-_|mousepad $nnn'
+```sh
+export NNN_PLUG='m:-_|mousepad $nnn'
+```
 
 Notes:
 
@@ -119,7 +134,8 @@ Notes:
 | Key:Command | Description |
 |---|---|
 | `k:-_fuser -kiv $nnn*` | Interactively kill process(es) using hovered file |
-| `l:_git log` | Show git log |
+| `g:-_git diff` | Show git diff |
+| `l:-_git log` | Show git log |
 | `n:-_vi /home/user/Dropbox/dir/note*` | Take quick notes in a synced file/dir of notes |
 | `p:-_less -iR $nnn*` | Page through hovered file in less |
 | `s:-_\|smplayer -minigui $nnn` | Play hovered media file, even unfinished download |
@@ -150,7 +166,7 @@ The plugin should write a single string in the format `<number><path>` without a
 The number indicates the context to change the active directory of (0 is used to indicate the current context).
 
 For convenience, we provided a helper script named `.nnn-plugin-helper` and a function named `nnn_cd` to ease this process. `nnn_cd` receives the path to change to as the first argument, and the context as an optional second argument.
-If a context is not provided, it is asked for explicitly.
+If a context is not provided, it is asked for explicitly. To skip this and choose the current context, set the `CUR_CTX` variable in `.nnn-plugin-helper` to `1`.
 Usage examples can be found in the Examples section below.
 
 #### Examples
