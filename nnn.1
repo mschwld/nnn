@@ -1,4 +1,4 @@
-.Dd Apr 13, 2020
+.Dd May 26, 2020
 .Dt NNN 1
 .Os
 .Sh NAME
@@ -6,6 +6,7 @@
 .Nd the missing terminal file manager for X
 .Sh SYNOPSIS
 .Nm
+.Op Ar -a
 .Op Ar -A
 .Op Ar -b key
 .Op Ar -c
@@ -17,6 +18,7 @@
 .Op Ar -g
 .Op Ar -H
 .Op Ar -K
+.Op Ar -l
 .Op Ar -n
 .Op Ar -p file
 .Op Ar -Q
@@ -53,6 +55,9 @@ to see the list of keybinds.
 .Nm
 supports the following options:
 .Pp
+.Fl a
+        auto-setup temporary NNN_FIFO (described in ENVIRONMENT section)
+.Pp
 .Fl A
         disable directory auto-select in type-to-nav mode
 .Pp
@@ -60,7 +65,7 @@ supports the following options:
         specify bookmark key to open
 .Pp
 .Fl c
-        opener opens files in cli utilities only (overrides -e)
+        indicates that the opener is a cli-only opener (overrides -e)
 .Pp
 .Fl d
         detail mode
@@ -86,6 +91,9 @@ supports the following options:
 .Fl K
         test for keybind collision
 .Pp
+.Fl "l val"
+        number of lines to move per mouse wheel scroll
+.Pp
 .Fl n
         start in type-to-nav mode
 .Pp
@@ -109,7 +117,7 @@ supports the following options:
         load a session by name
 .Pp
 .Fl S
-        start in disk usage analyzer mode
+        persistent session
 .Pp
 .Fl "t secs"
         idle timeout in seconds to lock terminal
@@ -160,7 +168,8 @@ Sessions can be loaded dynamically from within a running
 instance, or with a program option.
 .Pp
 When a session is loaded dynamically, the last working session is saved
-automatically to a dedicated -- "last session" -- session file.
+automatically to a dedicated -- "last session" -- session file. The "last
+session" is also used in persistent session mode.
 .Pp
 All the session files are located by session name in the directory
 .Pp
@@ -267,7 +276,7 @@ list again. If no file is selected in the current session, this option attempts
 to list the selection file.
 .Sh LIST INPUT
 .Nm
-can receive a list of NUL-separated ('\\0') file pathss as input. Paths and can
+can receive a list of NUL-separated ('\\0') file paths as input. Paths and can
 be relative to the current directory or absolute.
 .Pp
 Input is limited by 65,536 paths or 256 MiB of input.
@@ -300,7 +309,10 @@ A temporary directory will be created containing symlinks to the given
 paths. Any action performed on these symlinks will be performed only on their
 targets, after which they might become invalid.
 .Pp
-\fBInvalid paths in the iput are ignored.\fR
+Right arrow or 'l' on a symlink in the listing dir takes to the target file.
+Press '-' to return to the listing dir. Press 'Enter' to open the symlink.
+.Pp
+\fBInvalid paths in the input are ignored.\fR
 .Sh UNITS
 The minimum file size unit is byte (B). The rest are K, M, G, T, P, E, Z, Y
 (powers of 1024), same as the default units in \fIls\fR.
@@ -327,23 +339,24 @@ separated by \fI;\fR:
     export NNN_BMS='d:~/Documents;u:/home/user/Cam Uploads;D:~/Downloads/'
 .Ed
 .Pp
-\fBNNN_PLUG:\fR directly executable plugins as \fIkey_char:location\fR pairs
+\fBNNN_PLUG:\fR directly executable plugins as \fIkey_char:plugin\fR pairs
 separated by \fI;\fR:
 .Bd -literal
-    export NNN_PLUG='o:fzopen;p:mocplay;d:diffs;m:nmount;t:imgthumb'
+    export NNN_PLUG='f:finder;o:fzopen;p:mocplay;d:diffs;t:nmount;v:imgview'
 
     NOTES:
-    1. To run a plugin directly, press \fI;\fR followed by the plugin key.
-    2. To skip directory refresh after running a plugin, prefix with \fB-\fR.
+    1. To run a plugin directly, press \fI;\fR followed by the key.
+    2. Alternatively, combine with \fIAlt\fR (i.e. \fIAlt+key\fR).
+    3. To skip directory refresh after running a plugin, prefix with \fB-\fR.
 
-    export NNN_PLUG='m:-mediainfo'
+    export NNN_PLUG='m:-mediainf'
 .Ed
 .Pp
     To assign keys to arbitrary non-background non-shell-interpreted cli
     commands and invoke like plugins, add \fI_\fR (underscore) before the
     command.
 .Bd -literal
-    export NNN_PLUG='x:_chmod +x $nnn;g:_git log;s:_smplayer $nnn;o:fzopen'
+    export NNN_PLUG='x:_chmod +x $nnn;g:_git log;s:_smplayer $nnn'
 
     NOTES:
     1. Use single quotes for $NNN_PLUG so $nnn is not interpreted
@@ -352,6 +365,7 @@ separated by \fI;\fR:
     4. To disable directory refresh after running a \fIcommand as plugin\fR,
        prefix with \fB-_\fR
     5. To skip user confirmation after command execution, suffix with \fB*\fR
+       Note: Do not use \fB*\fR with programs those run and exit e.g. cat
 
     export NNN_PLUG='y:-_sync*'
 
@@ -363,8 +377,8 @@ separated by \fI;\fR:
     ----------------------------------- + -------------------------------------------------
                 Key:Command             |                   Description
     ----------------------------------- + -------------------------------------------------
-    k:-_fuser -kiv $nnn*                | Interactively kill process(es) using hovered file
     g:-_git diff                        | Show git diff
+    k:-_fuser -kiv $nnn*                | Interactively kill process(es) using hovered file
     l:-_git log                         | Show git log
     n:-_vi /home/user/Dropbox/dir/note* | Take quick notes in a synced file/dir of notes
     p:-_less -iR $nnn*                  | Page through hovered file in less
@@ -407,6 +421,23 @@ separated by \fI;\fR:
     export NNN_TRASH=1
 .Ed
 .Pp
+\fBNNN_SEL:\fR absolute path to custom selection file.
+.Pp
+\fBNNN_FIFO:\fR path of a named pipe to write the hovered file path:
+.Bd -literal
+    export NNN_FIFO='/tmp/nnn.fifo'
+
+    NOTES:
+    1. Overriden by a temporary path with -a option.
+    2. If the FIFO file doesn't exist it will be created, but not removed (unless it is generated by -a option).
+.Ed
+.Pp
+\fBNNN_LOCKER:\fR terminal locker program.
+.Bd -literal
+    export NNN_LOCKER='bmon -p wlp1s0'
+    export NNN_LOCKER='cmatrix'
+.Ed
+.Pp
 \fBNNN_MCLICK:\fR key emulated by a middle mouse click.
 .Bd -literal
     export NNN_MCLICK='^R'
@@ -417,7 +448,7 @@ separated by \fI;\fR:
 \fBnnn:\fR this is a special variable set to the hovered entry before executing
 a command from the command prompt or spawning a shell.
 .Pp
-\fBNO_COLOR:\fR if defined, disable ANSI color output.
+\fBNO_COLOR:\fR disable ANSI color output (overridden by \fBNNN_COLORS\fR).
 .Sh KNOWN ISSUES
 .Nm
 may not handle keypresses correctly when used with tmux (see issue #104 for

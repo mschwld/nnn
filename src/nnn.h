@@ -32,7 +32,7 @@
 
 #include <curses.h>
 
-#define CONTROL(c) ((c) ^ 0x40)
+#define CONTROL(c) ((c) & 0x1f)
 
 /* Supported actions */
 enum action {
@@ -154,6 +154,8 @@ static struct key bindings[] = {
 	/* Leader key */
 	{ ',',            SEL_BOOKMARK },
 	{ CONTROL('_'),   SEL_BOOKMARK },
+	/* Connect to server over SSHFS */
+	{ 'c',            SEL_REMOTE },
 	/* Cycle contexts in forward direction */
 	{ '\t',           SEL_CYCLE },
 	/* Cycle contexts in reverse direction */
@@ -217,12 +219,12 @@ static struct key bindings[] = {
 	{ CONTROL('R'),   SEL_RENAME },
 	/* Rename contents of current dir */
 	{ 'r',            SEL_RENAMEMUL },
-	/* Connect to server over SSHFS */
-	{ 'c',            SEL_REMOTE },
 	/* Disconnect a SSHFS mount point */
 	{ 'u',            SEL_UMOUNT },
 	/* Show help */
 	{ '?',            SEL_HELP },
+	/* Quit a context */
+	{ '+',            SEL_AUTONEXT },
 	/* Edit in EDITOR */
 	{ 'e',            SEL_EDIT },
 	/* Run a plugin */
@@ -239,8 +241,10 @@ static struct key bindings[] = {
 	{ '0',            SEL_LOCK },
 	/* Manage sessions */
 	{ 's',            SEL_SESSIONS },
-	/* Quit a context */
-	{ '+',            SEL_AUTONEXT },
+	/* Export list */
+	{ '>',            SEL_EXPORT },
+	/* Set time type */
+	{ 'T',            SEL_TIMETYPE },
 	/* Quit a context */
 	{ 'q',            SEL_QUITCTX },
 	/* Change dir on quit */

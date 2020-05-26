@@ -12,6 +12,7 @@ _nnn ()
     local cur=$2 prev=$3
     local -a opts
     opts=(
+        -a
         -A
         -b
         -c
@@ -23,9 +24,11 @@ _nnn ()
         -g
         -H
         -K
+        -l
         -n
         -o
         -p
+        -P
         -Q
         -r
         -R
@@ -40,8 +43,13 @@ _nnn ()
     if [[ $prev == -b ]]; then
         local bookmarks=$(echo $NNN_BMS | awk -F: -v RS=\; '{print $1}')
         COMPREPLY=( $(compgen -W "$bookmarks" -- "$cur") )
+    elif [[ $prev == -l ]]; then
+        return 1
     elif [[ $prev == -p ]]; then
         COMPREPLY=( $(compgen -f -d -- "$cur") )
+    elif [[ $prev == -P ]]; then
+        local plugins=$(echo $NNN_PLUG | awk -F: -v RS=\; '{print $1}')
+        COMPREPLY=( $(compgen -W "$plugins" -- "$cur") )
     elif [[ $prev == -s ]]; then
         local sessions_dir=${XDG_CONFIG_HOME:-$HOME/.config}/nnn/sessions
         COMPREPLY=( $(cd "$sessions_dir" && compgen -f -d -- "$cur") )
