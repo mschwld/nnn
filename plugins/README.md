@@ -3,8 +3,8 @@
 <p align="center"><img src="https://i.imgur.com/SpT0L2W.png" /></p>
 <p align="center"><i>read ebooks with plugin gutenread (Android)</i></p>
 
-<p align="center"><img src="https://i.imgur.com/14iPDIq.png" /></p>
-<p align="center"><i>image preview with plugin imgthumb</i></p>
+<p align="center"><a href="https://asciinema.org/a/336443"><img src="https://asciinema.org/a/336443.svg" width="734"/></a></p>
+<p align="center"><i>Live Previews</i></p>
 
 ## Introduction
 
@@ -12,7 +12,63 @@ Plugins extend the capabilities of `nnn`. They are _executable_ scripts (or bina
 
 `nnn` is _**language-agnostic**_ when it comes to plugins. You can write a plugin in any (scripting) language you are comfortable in!
 
-## Installing plugins
+## List of plugins
+
+| Plugin (a-z) | Description | Lang | Dependencies |
+| --- | --- | --- | --- |
+| [autojump](autojump) | Navigate to dir/path | sh | autojump |
+| [bookmarks](bookmarks) | Use named bookmarks managed with symlinks | sh | fzf |
+| [boom](boom) | Play random music from dir | sh | [moc](http://moc.daper.net/) |
+| [bulknew](bulknew) | Create multiple files/dirs at once | bash | sed, xargs, mktemp |
+| [dups](dups) | List non-empty duplicate files in current dir | sh | find, md5sum,<br>sort uniq xargs |
+| [chksum](chksum) | Create and verify checksums | sh | md5sum,<br>sha256sum |
+| [diffs](diffs) | Diff for selection (limited to 2 for directories) | sh | vimdiff, mktemp |
+| [dragdrop](dragdrop) | Drag/drop files from/into nnn | sh | [dragon](https://github.com/mwh/dragon) |
+| [finder](finder) | Run custom find command and list | sh | - |
+| [fzcd](fzcd) | Change to the directory of a fuzzy-selected file/dir | sh | fzf |
+| [fzhist](fzhist) | Fuzzy-select a cmd from history, edit in `$EDITOR` and run | sh | fzf, mktemp |
+| [fzopen](fzopen) | Fuzzy find a file in dir subtree and edit or open | sh | fzf, xdg-open |
+| [fzz](fzz) | Change to any directory in the z database with fzf | sh | fzf, z |
+| [getplugs](getplugs) | Update plugins to installed `nnn` version | sh | curl |
+| [gutenread](gutenread) | Browse, download, read from Project Gutenberg | sh | curl, unzip, w3m<br>[epr](https://github.com/wustho/epr) (optional) |
+| [gpg\*](gpg\*) | Encrypt/decrypt files using GPG | sh | gpg |
+| [hexview](hexview) | View a file in hex in `$PAGER` | sh | [hx](https://github.com/krpors/hx)/xxd |
+| [imgresize](imgresize) | Resize images in dir to screen resolution | sh | [imgp](https://github.com/jarun/imgp) |
+| [imgthumb](imgthumb) | View thumbnail of an image or dir of images | sh | [lsix](https://github.com/hackerb9/lsix) |
+| [imgur](imgur) | Upload an image to imgur (from [imgur-screenshot](https://github.com/jomo/imgur-screenshot)) | bash | - |
+| [imgview](imgview) | Browse images, set wallpaper, copy path ([config](https://wiki.archlinux.org/index.php/Sxiv#Assigning_keyboard_shortcuts)), [rename](https://github.com/jarun/nnn/wiki/Basic-use-cases#browse-rename-images)| sh | [imv](https://github.com/eXeC64/imv)/[sxiv](https://github.com/muennich/sxiv)/[viu](https://github.com/atanunq/viu), less|
+| [ipinfo](ipinfo) | Fetch external IP address and whois information | sh | curl, whois |
+| [kdeconnect](kdeconnect) | Send selected files to an Android device | sh | kdeconnect-cli |
+| [launch](launch) | GUI application launcher | sh | fzf |
+| [mediainf](mediainf) | Show media information | sh | mediainfo |
+| [mimelist](mimelist) | List files by mime in subtree | sh | fd/find |
+| [moclyrics](moclyrics) | Show lyrics of the track playing in moc | sh | [ddgr](https://github.com/jarun/ddgr), [moc](http://moc.daper.net/) |
+| [mocplay](mocplay) | Append (and/or play) selection/dir/file in moc | sh | [moc](http://moc.daper.net/) |
+| [mp3conv](mp3conv) | Extract audio from multimedia as mp3 | sh | ffmpeg |
+| [nbak](nbak) | Backs up `nnn` config | sh | tar, awk, mktemp |
+| [nmount](nmount) | Toggle mount status of a device as normal user | sh | pmount, udisks2 |
+| [nuke](nuke) | Sample file opener (CLI-only by default) | sh | _see in-file docs_ |
+| [oldbigfile](oldbigfile) | List large files by access time | sh | find, sort |
+| [organize](organize) | Auto-organize files in directories by file type | sh | file |
+| [pdfread](pdfread) | Read a PDF or text file aloud | sh | pdftotext, mpv,<br>pico2wave |
+| [pdfview](pdfview) | View PDF file in `$PAGER` | sh | pdftotext/<br>mupdf-tools |
+| [picker](picker) | Pick files and list one per line (to pipe) | sh | nnn |
+| [preview-tabbed](preview-tabbed) | Tabbed/xembed based file previewer | bash | _see in-file docs_ |
+| [preview-tui](preview-tui) | Tmux/kitty/xterm/`$TERMINAL` based file previewer | sh | _see in-file docs_ |
+| [pskill](pskill) | Fuzzy list by name and kill process or zombie | sh | fzf, ps, sudo/doas |
+| [renamer](renamer) | Batch rename selection or files in dir | sh | [qmv](https://www.nongnu.org/renameutils/)/[vidir](https://joeyh.name/code/moreutils/) |
+| [ringtone](ringtone) | Create a variable bitrate mp3 ringtone from file | sh | date, ffmpeg |
+| [splitjoin](splitjoin) | Split file or join selection | sh | split, cat |
+| [suedit](suedit) | Edit file using superuser permissions | sh | sudoedit/sudo/doas |
+| [treeview](treeview) | Informative tree output in `$EDITOR` | sh | tree |
+| [uidgid](uidgid) | List user and group of all files in dir | sh | ls, less |
+| [upgrade](upgrade) | Upgrade nnn manually on Debian 9 Stretch | sh | curl |
+| [upload](upload) | Upload to Firefox Send or ix.io (text) or file.io (bin) | sh | [ffsend](https://github.com/timvisee/ffsend), curl, jq, tr |
+| [vidthumb](vidthumb) | Show video thumbnails in terminal | sh | [ffmpegthumbnailer](https://github.com/dirkvdb/ffmpegthumbnailer),<br>[lsix](https://github.com/hackerb9/lsix) |
+| [wall](wall) | Set wallpaper or change colorscheme | sh | nitrogen/pywal |
+| [x2sel](x2sel) | Copy `\n`-separated file list from system clipboard to sel | sh | _see in-file docs_ |
+
+## Installation
 
 The following command installs or updates (after backup) all plugins:
 
@@ -22,84 +78,31 @@ curl -Ls https://raw.githubusercontent.com/jarun/nnn/master/plugins/getplugs | s
 
 Plugins are installed to `${XDG_CONFIG_HOME:-$HOME/.config}/nnn/plugins`.
 
-## List of plugins
+## Configuration
 
-| Plugin (a-z) | Description | Lang | Dependencies |
-| --- | --- | --- | --- |
-| autojump | Navigate to dir/path | sh | autojump |
-| bookmarks | Use named bookmarks managed with symlinks | sh | fzf |
-| boom | Play random music from dir | sh | [moc](http://moc.daper.net/) |
-| dups | List non-empty duplicate files in current dir | sh | find, md5sum,<br>sort uniq xargs |
-| chksum | Create and verify checksums | sh | md5sum,<br>sha256sum |
-| diffs | Diff for selection (limited to 2 for directories) | sh | vimdiff |
-| dragdrop | Drag/drop files from/into nnn | sh | [dragon](https://github.com/mwh/dragon) |
-| finder | Run custom find command and list | sh | - |
-| fzcd | Change to the directory of a fuzzy-selected file/dir | sh | fzf |
-| fzhist | Fuzzy-select a cmd from history, edit in `$EDITOR` and run | sh | fzf |
-| fzopen | Fuzzy find a file in dir subtree and edit or open | sh | fzf, xdg-open |
-| fzz | Change to any directory in the z database with fzf | sh | fzf, z |
-| getplugs | Update plugins to installed `nnn` version | sh | curl |
-| gutenread | Browse, download, read from Project Gutenberg | sh | curl, unzip, w3m<br>[epr](https://github.com/wustho/epr) (optional) |
-| hexview | View a file in hex in `$PAGER` | sh | xxd |
-| imgresize | Resize images in dir to screen resolution | sh | [imgp](https://github.com/jarun/imgp) |
-| imgthumb | View thumbnail of an image or dir of images | sh | [lsix](https://github.com/hackerb9/lsix) |
-| imgur | Upload an image to imgur (from [imgur-screenshot](https://github.com/jomo/imgur-screenshot)) | bash | - |
-| imgview | Browse images, set wallpaper, copy path ([config](https://wiki.archlinux.org/index.php/Sxiv#Assigning_keyboard_shortcuts)), [rename](https://github.com/jarun/nnn/wiki/Basic-use-cases#browse-rename-images)| sh | sxiv/[viu](https://github.com/atanunq/viu), less|
-| ipinfo | Fetch external IP address and whois information | sh | curl, whois |
-| kdeconnect | Send selected files to an Android device | sh | kdeconnect-cli |
-| launch | GUI application launcher | sh | fzf |
-| mediainf | Show media information | sh | mediainfo |
-| mimelist | List files by mime in subtree | sh | fd/find |
-| moclyrics | Show lyrics of the track playing in moc | sh | [ddgr](https://github.com/jarun/ddgr), [moc](http://moc.daper.net/) |
-| mocplay | Append (and/or play) selection/dir/file in moc | sh | [moc](http://moc.daper.net/) |
-| mp3conv | Extract audio from multimedia as mp3 | sh | ffmpeg |
-| nbak | Backs up `nnn` config | sh | tar, awk |
-| nmount | Toggle mount status of a device as normal user | sh | pmount, udisks2 |
-| nuke | Sample file opener (CLI-only by default) | sh | _see in-file docs_ |
-| oldbigfile | List large files by access time | sh | find, sort |
-| organize | Auto-organize files in directories by file type | sh | file |
-| pdfread | Read a PDF or text file aloud | sh | pdftotext, mpv,<br>pico2wave |
-| pdfview | View PDF file in `$PAGER` | sh | pdftotext/<br>mupdf-tools |
-| picker | Pick files and list one per line (to pipe) | sh | nnn |
-| preview-kitty | File previewer in a kitty terminal pane | sh | [kitty](https://sw.kovidgoyal.net/kitty/), optional:<br>[exa](https://github.com/ogham/exa) [bat](https://github.com/sharkdp/bat) mediainfo |
-| preview-tabbed | `tabbed`/xembed based file previewer | bash | _see in-file docs_ |
-| preview-tui | Simple TUI file previewer (needs NNN_FIFO) | sh | tmux (>= 3.0)/xterm/<br>\$TERMINAL, file, tree |
-| pskill | Fuzzy list by name and kill process or zombie | sh | fzf, ps, sudo/doas |
-| renamer | Batch rename selection or files in dir | sh | [qmv](https://www.nongnu.org/renameutils/)/[vidir](https://joeyh.name/code/moreutils/) |
-| ringtone | Create a variable bitrate mp3 ringtone from file | sh | date, ffmpeg |
-| splitjoin | Split file or join selection | sh | split, cat |
-| suedit | Edit file using superuser permissions | sh | sudoedit/sudo/doas |
-| treeview | Informative tree output in `$EDITOR` | sh | tree |
-| uidgid | List user and group of all files in dir | sh | ls, less |
-| upgrade | Upgrade nnn manually on Debian 9 Stretch | sh | curl |
-| upload | Paste text to ix.io, upload binary to file.io | sh | curl, jq, tr |
-| vidthumb | Show video thumbnails in terminal | sh | [ffmpegthumbnailer](https://github.com/dirkvdb/ffmpegthumbnailer),<br>[lsix](https://github.com/hackerb9/lsix) |
-| wall | Set wallpaper or change colorscheme | sh | nitrogen/pywal |
-| x2sel | Copy `\n`-separated file list from system clipboard to sel | sh | _see in-file docs_ |
-
-## Invoking a plugin
-
-Press the plugin shortcut (<kbd>;</kbd> or <kbd>^S</kbd>) followed by the assigned key character. E.g., with the below config:
+Set environment variable `NNN_PLUG` to assign keybinds and invoke plugins directly using the plugin shortcut (<kbd>;</kbd>) followed by the assigned key character. E.g., with the below config:
 
 ```sh
 export NNN_PLUG='f:finder;o:fzopen;p:mocplay;d:diffs;t:nmount;v:imgview'
 ```
 
-Plugin `finder` can be run with the keybind <kbd>;f</kbd>, `fzopen` can be run with <kbd>;o</kbd> and so on... The key vs. plugin pairs are shown in the help and config screen.
+plugin `finder` can be invoked with the keybind <kbd>;f</kbd>, `fzopen` can be run with <kbd>;o</kbd> and so on... The key vs. plugin pairs are shown in the help and config screen.
 
 Alternatively, combine with <kbd>Alt</kbd> (i.e. <kbd>Alt+key</kbd>).
 
-To select and invoke a plugin from the plugin directory, press <kbd>Enter</kbd> (to _enter_ the plugin dir) after the plugin shortcut.
+To pick and run an unassigned plugin, press <kbd>Enter</kbd> (to _enter_ the plugin dir) at the plugin prompt.
+
+To run a plugin at startup, use the option `-P` followed by the plugin key.
 
 #### Skip directory refresh after running a plugin
 
-`nnn` refreshes the directory after running a plugin to reflect any changes by the plugin. To disable this (say while running the `mediainfo` plugin on some filtered files), add a `-` before the plugin name:
+`nnn` refreshes the directory after running a plugin to reflect any changes by the plugin. To disable this (say while running the `mediainf` plugin on some filtered files), add a `-` before the plugin name:
 
 ```sh
 export NNN_PLUG='m:-mediainf'
 ```
 
-Now `nnn` will not refresh the directory after running the `mediainfo` plugin.
+Now `nnn` will not refresh the directory after running the `mediainf` plugin.
 
 ## Running commands as plugin
 
@@ -198,11 +201,9 @@ Usage examples can be found in the Examples section below.
 
 If `NNN_FIFO` is set, `nnn` will open it and write every hovered files. This can be used in plugins and external scripts, e.g. to implement file previews.
 
-The easiest way to set `NNN_FIFO` is to start `nnn` with the `-a` option, to automatically setup a temporary FIFO file for this `nnn` instance.
-
-If a `NNN_FIFO` environment variable is set globally (and `-a` is not passed to `nnn`), each `nnn` instance will write to the same FIFO, and a process reading from the pipe will get hovered path from every instance, interleaved.
-
 Don't forget to fork in the background to avoid blocking `nnn`.
+
+For more details on configuration and usage of the preview plugins, visit [Live Previews](https://github.com/jarun/nnn/wiki/Live-previews).
 
 #### Examples
 There are many plugins provided by `nnn` which can be used as examples. Here are a few simple selected examples.
@@ -249,6 +250,36 @@ There are many plugins provided by `nnn` which can be used as examples. Here are
         printf "%s" "$FILE" | xsel
     done < "$NNN_FIFO" &
     disown
+    ```
+
+- Quick find (using `fd`)
+    ```sh
+    #!/usr/bin/env sh
+
+    . "$(dirname "$0")"/.nnn-plugin-helper
+
+    printf "pattern: "
+    read -r pattern
+
+    if ! [ -z "$pattern" ]; then
+        printf "%s" "+l" > "$NNN_PIPE"
+        eval "fd -HI $pattern -0" > "$NNN_PIPE"
+    fi
+    ```
+
+- Quick grep (using `rg`)
+    ```sh
+    #!/usr/bin/env sh
+
+    . "$(dirname "$0")"/.nnn-plugin-helper
+
+    printf "pattern: "
+    read -r pattern
+
+    if ! [ -z "$pattern" ]; then
+        printf "%s" "+l" > "$NNN_PIPE"
+        eval "rg -l0 --hidden -S $pattern" > "$NNN_PIPE"
+    fi
     ```
 
 ## Contributing plugins

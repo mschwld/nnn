@@ -11,9 +11,15 @@ CP ?= cp
 
 CFLAGS_OPTIMIZATION ?= -O3
 
-O_DEBUG := 0
+O_DEBUG := 0  # debug binary
 O_NORL := 0  # no readline support
+O_PCRE := 0  # link with PCRE library
 O_NOLOC := 0  # no locale support
+O_NOMOUSE := 0  # no mouse support
+O_NOBATCH := 0  # no built-in batch renamer
+O_NOFIFO := 0  # no FIFO previewer support
+O_CTX8 := 0  # enable 8 contexts
+O_ICONS := 0  # support icons
 
 # convert targets to flags for backwards compatibility
 ifneq ($(filter debug,$(MAKECMDGOALS)),)
@@ -61,6 +67,14 @@ ifeq ($(O_NOFIFO),1)
 	CPPFLAGS += -DNOFIFO
 endif
 
+ifeq ($(O_CTX8),1)
+	CPPFLAGS += -DCTX8
+endif
+
+ifeq ($(O_ICONS),1)
+	CPPFLAGS += -DICONS
+endif
+
 ifeq ($(shell $(PKG_CONFIG) ncursesw && echo 1),1)
 	CFLAGS_CURSES ?= $(shell $(PKG_CONFIG) --cflags ncursesw)
 	LDLIBS_CURSES ?= $(shell $(PKG_CONFIG) --libs   ncursesw)
@@ -71,7 +85,7 @@ else
 	LDLIBS_CURSES ?= -lncurses
 endif
 
-CFLAGS += -std=c11 -Wall -Wextra
+CFLAGS += -std=c11 -Wall -Wextra -Wshadow
 CFLAGS += $(CFLAGS_OPTIMIZATION)
 CFLAGS += $(CFLAGS_CURSES)
 
@@ -147,13 +161,13 @@ upload-local: sign static
 	curl -XPOST 'https://uploads.github.com/repos/jarun/nnn/releases/$(ID)/assets?name=nnn-$(VERSION).tar.gz.sig' \
 	    -H 'Authorization: token $(NNN_SIG_UPLOAD_TOKEN)' -H 'Content-Type: application/pgp-signature' \
 	    --upload-file nnn-$(VERSION).tar.gz.sig
-	tar -zcf $(BIN)-static-$(VERSION).x86-64.tar.gz $(BIN)-static
-	curl -XPOST 'https://uploads.github.com/repos/jarun/nnn/releases/$(ID)/assets?name=$(BIN)-static-$(VERSION).x86-64.tar.gz' \
+	tar -zcf $(BIN)-static-$(VERSION).x86_64.tar.gz $(BIN)-static
+	curl -XPOST 'https://uploads.github.com/repos/jarun/nnn/releases/$(ID)/assets?name=$(BIN)-static-$(VERSION).x86_64.tar.gz' \
 	    -H 'Authorization: token $(NNN_SIG_UPLOAD_TOKEN)' -H 'Content-Type: application/x-sharedlib' \
-	    --upload-file $(BIN)-static-$(VERSION).x86-64.tar.gz
+	    --upload-file $(BIN)-static-$(VERSION).x86_64.tar.gz
 
 clean:
-	$(RM) -f $(BIN) nnn-$(VERSION).tar.gz *.sig $(BIN)-static $(BIN)-static-$(VERSION).x86-64.tar.gz
+	$(RM) -f $(BIN) nnn-$(VERSION).tar.gz *.sig $(BIN)-static $(BIN)-static-$(VERSION).x86_64.tar.gz
 
 skip: ;
 

@@ -34,10 +34,18 @@
 
 #define CONTROL(c) ((c) & 0x1f)
 
+#ifndef ESC
+#define ESC (27)
+#endif
+
+#ifndef DEL
+#define DEL (127)
+#endif
+
 /* Supported actions */
 enum action {
 	SEL_BACK = 1,
-	SEL_GOIN,
+	SEL_OPEN,
 	SEL_NAV_IN,
 	SEL_NEXT,
 	SEL_PREV,
@@ -60,7 +68,13 @@ enum action {
 	SEL_CTX2,
 	SEL_CTX3,
 	SEL_CTX4,
-	SEL_PIN,
+#ifdef CTX8
+	SEL_CTX5,
+	SEL_CTX6,
+	SEL_CTX7,
+	SEL_CTX8,
+#endif
+	SEL_MARK,
 	SEL_FLTR,
 	SEL_MFLTR,
 	SEL_HIDDEN,
@@ -98,6 +112,9 @@ enum action {
 	SEL_QUITCD,
 	SEL_QUIT,
 	SEL_QUITFAIL,
+#ifndef NOFIFO
+	SEL_FIFO,
+#endif
 #ifndef NOMOUSE
 	SEL_CLICK,
 #endif
@@ -114,8 +131,8 @@ static struct key bindings[] = {
 	{ KEY_LEFT,       SEL_BACK },
 	{ 'h',            SEL_BACK },
 	/* Inside or select */
-	{ KEY_ENTER,      SEL_GOIN },
-	{ '\r',           SEL_GOIN },
+	{ KEY_ENTER,      SEL_OPEN },
+	{ '\r',           SEL_OPEN },
 	/* Pure navigate inside */
 	{ KEY_RIGHT,      SEL_NAV_IN },
 	{ 'l',            SEL_NAV_IN },
@@ -165,15 +182,20 @@ static struct key bindings[] = {
 	{ '2',            SEL_CTX2 },
 	{ '3',            SEL_CTX3 },
 	{ '4',            SEL_CTX4 },
+#ifdef CTX8
+	{ '5',            SEL_CTX5 },
+	{ '6',            SEL_CTX6 },
+	{ '7',            SEL_CTX7 },
+	{ '8',            SEL_CTX8 },
+#endif
 	/* Mark a path to visit later */
-	/*{ ',',            SEL_PIN },*/
+	/*{ ',',            SEL_MARK },*/
 	/* Filter */
 	{ '.',            SEL_FLTR },
 	/* Toggle filter mode */
 	{ CONTROL('N'),   SEL_MFLTR },
 	/* Toggle hide .dot files */
 	{ CONTROL('H'),   SEL_HIDDEN },
-	{ KEY_F(5),       SEL_HIDDEN },
 	/* Detailed listing */
 	{ 'd',            SEL_DETAIL },
 	/* File details */
@@ -229,7 +251,6 @@ static struct key bindings[] = {
 	{ 'e',            SEL_EDIT },
 	/* Run a plugin */
 	{ 'x',            SEL_PLUGIN },
-	{ CONTROL('S'),   SEL_PLUGIN },
 	/* Run command */
 	{ '!',            SEL_SHELL },
 	{ CONTROL(']'),   SEL_SHELL },
@@ -253,6 +274,10 @@ static struct key bindings[] = {
 	{ CONTROL('Q'),   SEL_QUIT },
 	/* Quit with an error code */
 	{ 'Q',            SEL_QUITFAIL },
+#ifndef NOFIFO
+	/* Send hovered path to NNN_FIFO */
+	{ ESC,            SEL_FIFO },
+#endif
 #ifndef NOMOUSE
 	{ KEY_MOUSE,      SEL_CLICK },
 #endif
