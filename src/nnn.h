@@ -168,11 +168,11 @@ static struct key bindings[] = {
 	/* Mark a path to visit later */
 	/*{ ',',            SEL_PIN },*/
 	/* Filter */
-	{ '/',            SEL_FLTR },
+	{ '.',            SEL_FLTR },
 	/* Toggle filter mode */
 	{ CONTROL('N'),   SEL_MFLTR },
 	/* Toggle hide .dot files */
-	{ '.',            SEL_HIDDEN },
+	{ CONTROL('H'),   SEL_HIDDEN },
 	{ KEY_F(5),       SEL_HIDDEN },
 	/* Detailed listing */
 	{ 'd',            SEL_DETAIL },
