@@ -1,7 +1,7 @@
 # About
-This software contains the great file manager nnn (original repository: [here](https://github.com/jarun/nnn). The only difference here is that i changed the keybindings to better suit my personal preferences. 
+This software contains the great file manager nnn (original repository is located [here](https://github.com/jarun/nnn)). The only difference here is that i changed the keybindings to better suit my personal preferences. 
 
-# Bindings changed:
+# Bindings changed
 - `,` for bookmarks (`SEL_BOOKMARK`)
 - `x` for plugins (`SEL_PLUGIN`)
 - `D` for deletion from selection buffer (`SEL_RM`)
@@ -10,6 +10,6 @@ This software contains the great file manager nnn (original repository: [here](h
 - `C-H` for toggle hidden files (`SEL_HIDDEN`)
 - `.` for filter (`SEL_FLTR`)
 
-# Bindings disabled:
+# Bindings disabled
 - `SEL_SELMUL` 
 - `SEL_MARK` 
