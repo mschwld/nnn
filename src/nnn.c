@@ -126,7 +126,7 @@
 #endif
 
 /* Macro definitions */
-#define VERSION "3.6"
+#define VERSION "4.0"
 #define GENERAL_INFO "BSD 2-Clause\nhttps://github.com/jarun/nnn"
 
 #ifndef NOSSN
@@ -169,7 +169,7 @@
 #define SELECT ' '
 #define REGEX_MAX 48
 #define ENTRY_INCR 64 /* Number of dir 'entry' structures to allocate per shot */
-#define NAMEBUF_INCR 0x800 /* 64 dir entries at once, avg. 32 chars per filename = 64*32B = 2KB */
+#define NAMEBUF_INCR 0x800 /* 64 dir entries at once, avg. 32 chars per file name = 64*32B = 2KB */
 #define DESCRIPTOR_LEN 32
 #define _ALIGNMENT 0x10 /* 16-byte alignment */
 #define _ALIGNMENT_MASK 0xF
@@ -295,14 +295,15 @@ typedef struct {
 	uint_t reserved1  : 1;
 	/* The following settings are global */
 	uint_t curctx     : 3;  /* Current context number */
-	uint_t reserved2  : 2;
+	uint_t prefersel  : 1;  /* Prefer selection over current, if exists */
+	uint_t reserved2  : 1;
 	uint_t nonavopen  : 1;  /* Open file on right arrow or `l` */
 	uint_t autoselect : 1;  /* Auto-select dir in type-to-nav mode */
 	uint_t cursormode : 1;  /* Move hardware cursor with selection */
 	uint_t useeditor  : 1;  /* Use VISUAL to open text files */
 	uint_t reserved3  : 3;
 	uint_t regex      : 1;  /* Use regex filters */
-	uint_t x11        : 1;  /* Copy to system clipboard and show notis */
+	uint_t x11        : 1;  /* Copy to system clipboard, show notis, xterm title */
 	uint_t timetype   : 2;  /* Time sort type (0: access, 1: change, 2: modification) */
 	uint_t cliopener  : 1;  /* All-CLI app opener */
 	uint_t waitedit   : 1;  /* For ops that can't be detached, used EDITOR */
@@ -331,7 +332,7 @@ typedef struct {
 	uint_t stayonsel  : 1;  /* Disable auto-proceed on select */
 	uint_t dirctx     : 1;  /* Show dirs in context color */
 	uint_t uidgid     : 1;  /* Show owner and group info */
-	uint_t reserved   : 9; /* Adjust when adding/removing a field */
+	uint_t reserved   : 9;  /* Adjust when adding/removing a field */
 } runstate;
 
 /* Contexts or workspaces */
@@ -372,6 +373,7 @@ static settings cfg = {
 	0, /* version */
 	0, /* reserved1 */
 	0, /* curctx */
+	0, /* prefersel */
 	0, /* reserved2 */
 	0, /* nonavopen */
 	1, /* autoselect */
@@ -423,7 +425,7 @@ static blkcnt_t dir_blocks;
 static ulong_t num_files;
 static kv *bookmark;
 static kv *plug;
-static uchar_t tmpfplen;
+static uchar_t tmpfplen, homelen;
 static uchar_t blk_shift = BLK_SHIFT_512;
 #ifndef NOMOUSE
 static int middle_click_key;
@@ -450,10 +452,10 @@ static char g_pipepath[TMP_LEN_MAX] __attribute__ ((aligned));
 /* Non-persistent runtime states */
 static runstate g_state;
 
-/* Options to identify file mime */
+/* Options to identify file MIME */
 #if defined(__APPLE__)
 #define FILE_MIME_OPTS "-bIL"
-#elif !defined(__sun) /* no mime option for 'file' */
+#elif !defined(__sun) /* no MIME option for 'file' */
 #define FILE_MIME_OPTS "-biL"
 #endif
 
@@ -524,7 +526,7 @@ static char * const utils[] = {
 #define MSG_FAILED 5
 #define MSG_SSN_NAME 6
 #define MSG_CP_MV_AS 7
-#define MSG_NOCHNAGE 8
+#define MSG_CUR_SEL_OPTS 8
 #define MSG_FORCE_RM 9
 #define MSG_LIMIT 10
 #define MSG_NEW_OPTS 11
@@ -558,8 +560,9 @@ static char * const utils[] = {
 #define MSG_FIRST 39
 #define MSG_RM_TMP 40
 #define MSG_INVALID_KEY 41
+#define MSG_NOCHANGE 42
 #ifndef DIR_LIMITED_SELECTION
-#define MSG_DIR_CHANGED 42 /* Must be the last entry */
+#define MSG_DIR_CHANGED 43 /* Must be the last entry */
 #endif
 
 static const char * const messages[] = {
@@ -571,7 +574,7 @@ static const char * const messages[] = {
 	"failed!",
 	"session name: ",
 	"'c'p / 'm'v as?",
-	"unchanged",
+	"'c'urrent / 's'el?",
 	"rm -rf %s file%s? [Esc cancels]",
 	"limit exceeded",
 	"'f'ile / 'd'ir / 's'ym / 'h'ard?",
@@ -605,6 +608,7 @@ static const char * const messages[] = {
 	"first file (\')/char?",
 	"remove tmp file?",
 	"invalid key",
+	"unchanged",
 #ifndef DIR_LIMITED_SELECTION
 	"dir changed, range sel off", /* Must be the last entry */
 #endif
@@ -775,6 +779,8 @@ static int (*nftw_fn)(const char *fpath, const struct stat *sb, int typeflag, st
 static void move_cursor(int target, int ignore_scrolloff);
 static char *load_input(int fd, const char *path);
 static int set_sort_flags(int r);
+static void (*printptr)(const struct entry *ent, uint_t namecols, bool sel);
+static void printent_long(const struct entry *ent, uint_t namecols, bool sel);
 #ifndef NOFIFO
 static void notify_fifo(bool force);
 #endif
@@ -795,21 +801,34 @@ static void clean_exit_sighandler(int UNUSED(sig))
 
 static char *xitoa(uint_t val)
 {
-	static char ascbuf[32] = {0};
-	int i = 30;
-	uint_t rem;
+	static char dst[32] = {'\0'};
+	static const char digits[201] =
+		"0001020304050607080910111213141516171819"
+		"2021222324252627282930313233343536373839"
+		"4041424344454647484950515253545556575859"
+		"6061626364656667686970717273747576777879"
+		"8081828384858687888990919293949596979899";
+	uint_t next = 30, quo, i;
 
-	if (!val)
-		return "0";
-
-	while (val && i) {
-		rem = val / 10;
-		ascbuf[i] = '0' + (val - (rem * 10));
-		val = rem;
-		--i;
+	while (val >= 100) {
+		quo = val / 100;
+		i = (val - (quo * 100)) * 2;
+		val = quo;
+		dst[next] = digits[i + 1];
+		dst[--next] = digits[i];
+		--next;
 	}
 
-	return &ascbuf[++i];
+	/* Handle last 1-2 digits */
+	if (val < 10)
+		dst[next] = '0' + val;
+	else {
+		i = val * 2;
+		dst[next] = digits[i + 1];
+		dst[--next] = digits[i];
+	}
+
+	return &dst[next];
 }
 
 /* Return the integer value of a char representing HEX */
@@ -844,6 +863,7 @@ static bool test_set_bit(uint_t nr)
 	return TRUE;
 }
 
+#ifndef __APPLE__
 /* Increase the limit on open file descriptors, if possible */
 static rlim_t max_openfds(void)
 {
@@ -869,6 +889,7 @@ static rlim_t max_openfds(void)
 
 	return limit;
 }
+#endif
 
 /*
  * Wrapper to realloc()
@@ -1127,6 +1148,23 @@ static char *abspath(const char *path, const char *cwd)
 	return resolved_path;
 }
 
+static bool set_tilde_in_path(char *path)
+{
+	if (is_prefix(path, home, homelen)) {
+		home[homelen] = path[homelen - 1];
+		path[homelen - 1] = '~';
+		return TRUE;
+	}
+
+	return FALSE;
+}
+
+static void reset_tilde_in_path(char *path)
+{
+	path[homelen - 1] = home[homelen];
+	home[homelen] = '\0';
+}
+
 static int create_tmp_file(void)
 {
 	xstrsncpy(g_tmpfpath + tmpfplen - 1, messages[STR_TMPFILE], TMP_LEN_MAX - tmpfplen);
@@ -1222,6 +1260,15 @@ static int get_input(const char *prompt)
 
 static int get_cur_or_sel(void)
 {
+	if (selbufpos && ndents) {
+		if (cfg.prefersel)
+			return 's';
+
+		int choice = get_input(messages[MSG_CUR_SEL_OPTS]);
+
+		return ((choice == 'c' || choice == 's') ? choice : 0);
+	}
+
 	if (selbufpos)
 		return 's';
 
@@ -1832,7 +1879,7 @@ static pid_t xfork(uchar_t flag)
 		sigaction(SIGTSTP, &dfl_act, NULL);
 	}
 
-	/* This is the parent waiting for the child to create grandchild*/
+	/* This is the parent waiting for the child to create grandchild */
 	if (flag & F_NOWAIT)
 		waitpid(p, &status, 0);
 
@@ -1964,7 +2011,7 @@ static inline uint_t xgetenv_val(const char *name)
 	return 0;
 }
 
-/* Check if a dir exists, IS a dir and is readable */
+/* Check if a dir exists, IS a dir, and is readable */
 static bool xdiraccess(const char *path)
 {
 	DIR *dirp = opendir(path);
@@ -2840,9 +2887,9 @@ static int filterentries(char *path, char *lastname)
 		case KEY_MOUSE:
 			goto end;
 #endif
-		case ESC: /* Exit filter mode on Escape and Alt+key */
+		case ESC: /* Exit filter mode on Esc and Alt+key */
 			if (handle_alt_key(ch) != ERR) {
-				if (*ch == ESC) { /* Handle Alt + Esc */
+				if (*ch == ESC) { /* Handle Alt+Esc */
 					if (wln[1]) {
 						ln[REGEX_MAX - 1] = ln[1];
 						ln[1] = wln[1] = '\0';
@@ -2901,7 +2948,7 @@ static int filterentries(char *path, char *lastname)
 				continue;
 			}
 
-			/* toggle string or regex filter */
+			/* Toggle string or regex filter */
 			if (*ch == FILTER) {
 				ln[0] = (ln[0] == FILTER) ? RFILTER : FILTER;
 				wln[0] = (uchar_t)ln[0];
@@ -3028,7 +3075,7 @@ static char *xreadline(const char *prefill, const char *prompt)
 						(len - pos) * WCHAR_T_WIDTH);
 					--len, --pos;
 				} // fallthrough
-			case '\t': /* TAB breaks cursor position, ignore it */
+			case '\t': /* Tab breaks cursor position, ignore it */
 				continue;
 			case CONTROL('F'):
 				if (pos < len)
@@ -3068,7 +3115,7 @@ static char *xreadline(const char *prefill, const char *prompt)
 				len -= pos;
 				pos = 0;
 				continue;
-			case ESC: /* Exit prompt on Escape, but just filter out Alt+key */
+			case ESC: /* Exit prompt on Esc, but just filter out Alt+key */
 				if (handle_alt_key(ch) != ERR)
 					continue;
 
@@ -3376,6 +3423,24 @@ static char *unescape(const char *str, uint_t maxcols)
 }
 #endif
 
+static off_t get_size(off_t size, off_t *pval, uint_t comp)
+{
+	off_t rem = *pval;
+	off_t quo = rem / 10;
+
+	if ((rem - (quo * 10)) >= 5) {
+		rem = quo + 1;
+		if (rem == comp) {
+			++size;
+			rem = 0;
+		}
+	} else
+		rem = quo;
+
+	*pval = rem;
+	return size;
+}
+
 static char *coolsize(off_t size)
 {
 	const char * const U = "BKMGTPEZY";
@@ -3392,38 +3457,14 @@ static char *coolsize(off_t size)
 
 	if (i == 1) {
 		rem = (rem * 1000) >> 10;
-
 		rem /= 10;
-		if (rem % 10 >= 5) {
-			rem = (rem / 10) + 1;
-			if (rem == 10) {
-				++size;
-				rem = 0;
-			}
-		} else
-			rem /= 10;
+		size = get_size(size, &rem, 10);
 	} else if (i == 2) {
 		rem = (rem * 1000) >> 10;
-
-		if (rem % 10 >= 5) {
-			rem = (rem / 10) + 1;
-			if (rem == 100) {
-				++size;
-				rem = 0;
-			}
-		} else
-			rem /= 10;
-	} else if (i > 0) {
+		size = get_size(size, &rem, 100);
+	} else if (i > 2) {
 		rem = (rem * 10000) >> 10;
-
-		if (rem % 10 >= 5) {
-			rem = (rem / 10) + 1;
-			if (rem == 1000) {
-				++size;
-				rem = 0;
-			}
-		} else
-			rem /= 10;
+		size = get_size(size, &rem, 1000);
 	}
 
 	if (i > 0 && i < 6 && rem) {
@@ -3564,97 +3605,99 @@ static void print_time(const time_t *timep)
 {
 	struct tm *t = localtime(timep);
 
-	printw("%d-%02d-%02d %02d:%02d",
-	       t->tm_year + 1900, t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min);
+	printw("%s-%02d-%02d %02d:%02d",
+		xitoa(t->tm_year + 1900), t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min);
+}
+
+static char get_detail_ind(const mode_t mode)
+{
+	switch (mode & S_IFMT) {
+	case S_IFDIR:  // fallthrough
+	case S_IFREG:  return ' ';
+	case S_IFLNK:  return '@';
+	case S_IFSOCK: return '=';
+	case S_IFIFO:  return '|';
+	case S_IFBLK:  return 'b';
+	case S_IFCHR:  return 'c';
+	}
+	return '?';
+}
+
+static uchar_t get_color_pair_name_ind(const struct entry *ent, char *pind, bool detailed)
+{
+	switch (ent->mode & S_IFMT) {
+	case S_IFREG:
+		*pind = (ent->mode & 0100) ? '*' : '\0';
+		if (!ent->size)
+			return C_UND;
+		if (ent->flags & HARD_LINK)
+			return C_HRD;
+		if (ent->mode & 0100)
+			return C_EXE;
+		return C_FIL;
+	case S_IFDIR:
+		*pind = '/';
+		return (!g_state.oldcolor && g_state.dirctx) ? cfg.curctx + 1 : C_DIR;
+	case S_IFLNK:
+		*pind = (ent->flags & DIR_OR_LINK_TO_DIR) ? '/' : '@';
+		if (!g_state.oldcolor || detailed)
+			return (ent->flags & SYM_ORPHAN) ? C_ORP : C_LNK;
+		return 0;
+	case S_IFSOCK:
+		*pind = '=';
+		return C_SOC;
+	case S_IFIFO:
+		*pind = '|';
+		return C_PIP;
+	case S_IFBLK:
+		*pind = '\0';
+		return C_BLK;
+	case S_IFCHR:
+		*pind = '\0';
+		return C_CHR;
+	}
+
+	*pind = '?';
+	return C_UND;
 }
 
 static void printent(const struct entry *ent, uint_t namecols, bool sel)
 {
-	uchar_t pair = 0;
-	char ind = '\0';
-	int attrs = 0;
+	char ind;
+	uchar_t color_pair = get_color_pair_name_ind(ent, &ind, (printptr == &printent_long));
+	int attrs = 0, entry_type = ent->mode & S_IFMT;
 
-	switch (ent->mode & S_IFMT) {
-	case S_IFREG:
-		if (ent->mode & 0100) {
-			pair = C_EXE;
-			ind = '*';
-		}
-
-		if (!ent->size)
-			pair = C_UND;
-		else if (ent->flags & HARD_LINK)
-			pair = C_HRD;
-		else if (!pair)
-			pair = C_FIL;
-		break;
-	case S_IFDIR:
-		pair = C_DIR;
-		if (!g_state.oldcolor) {
-			attrs |= A_BOLD;
-			if (g_state.dirctx)
-				pair = cfg.curctx + 1;
-		}
-		ind = '/';
-		break;
-	case S_IFLNK:
-		if (ent->flags & DIR_OR_LINK_TO_DIR) {
-			if (!g_state.oldcolor)
-				attrs |= A_BOLD;
-			ind = '/';
-		} else
-			ind = '@';
-
-		if (g_state.oldcolor)
-			attrs |= A_DIM;
-		else
-			pair = (ent->flags & SYM_ORPHAN) ? C_ORP : C_LNK;
-		break;
-	case S_IFSOCK:
-		pair = C_SOC;
-		ind = '=';
-		break;
-	case S_IFIFO:
-		pair = C_PIP;
-		ind = '|';
-		break;
-	case S_IFBLK:
-		pair = C_BLK;
-		break;
-	case S_IFCHR:
-		pair = C_CHR;
-		break;
-	default:
-		pair = C_UND;
-		ind = '?';
-		break;
-	}
-
-	if (!g_state.oldcolor) {
-		if (ent->flags & FILE_MISSING)
-			pair = C_MIS;
-
-		if (pair && fcolors[pair])
-			attrs |= COLOR_PAIR(pair);
-	}
-
-	if (!ind)
-		++namecols;
+	addch((ent->flags & FILE_SELECTED) ? '+' : ' ');
 
 	/* Directories are always shown on top */
 	resetdircolor(ent->flags);
 
-	addch((ent->flags & FILE_SELECTED) ? '+' : ' ');
+	if (entry_type == S_IFDIR) {
+		if (!g_state.oldcolor)
+			attrs |= A_BOLD;
+	} else if (entry_type == S_IFLNK) {
+		if (!g_state.oldcolor && (ent->flags & DIR_OR_LINK_TO_DIR))
+			attrs |= A_BOLD;
+		else if (g_state.oldcolor)
+			attrs |= A_DIM;
+	}
 
+	if (!g_state.oldcolor) {
+		if (ent->flags & FILE_MISSING)
+			color_pair = C_MIS;
+		if (color_pair && fcolors[color_pair])
+			attrs |= COLOR_PAIR(color_pair);
 #ifdef ICONS_ENABLED
-	if (!g_state.oldcolor)
 		print_icon(ent, attrs);
 #endif
+	}
 
 	if (sel)
 		attrs |= A_REVERSE;
 	if (attrs)
 		attron(attrs);
+	if (!ind)
+		++namecols;
 
 #ifndef NOLOCALE
 	addwstr(unescape(ent->name, namecols));
@@ -3664,163 +3707,46 @@ static void printent(const struct entry *ent, uint_t namecols, bool sel)
 
 	if (attrs)
 		attroff(attrs);
-
 	if (ind)
 		addch(ind);
 	addch('\n');
 }
 
-static void printent_long(const struct entry *ent, uint_t namecols, bool sel)
+static void print_details(const struct entry *ent)
 {
-	bool ln = FALSE;
-	char ind1 = '\0', ind2 = '\0';
-	uchar_t pair = 0;
-	int attrs = sel ? (A_REVERSE | (g_state.oldcolor ? A_DIM : COLOR_PAIR(C_MIS)))
-			: (g_state.oldcolor ? A_DIM : COLOR_PAIR(C_MIS));
-	uint_t len;
-	char *size;
-	char selgap[] = "  ";
-
-	if (ent->flags & FILE_SELECTED)
-		selgap[1] = '+';
+	int entry_type = ent->mode & S_IFMT;
+	char perms[6] = {' ', ' ', (char)('0' + ((ent->mode >> 6) & 7)),
+			(char)('0' + ((ent->mode >> 3) & 7)), (char)('0' + (ent->mode & 7)), '\0'};
 
 	/* Directories are always shown on top */
 	resetdircolor(ent->flags);
 
+	print_time(&ent->t);
+	addstr(perms);
+
+	if (entry_type == S_IFREG || entry_type == S_IFDIR) {
+		char *size = coolsize(cfg.blkorder ? ent->blocks << blk_shift : ent->size);
+
+		printw("%*c%s", 9 - (uint_t)xstrlen(size), ' ', size);
+	} else
+		printw("%*c%c", 8, ' ', get_detail_ind(ent->mode));
+}
+
+static void printent_long(const struct entry *ent, uint_t namecols, bool sel)
+{
+	int attrs1 = g_state.oldcolor ? A_DIM : COLOR_PAIR(C_MIS);
+
+#ifdef CKBOARD
+	addch(sel ? ACS_CKBOARD : ' ');
+#else
+	addch(sel ? '>' : ' ');
+#endif
+	attron(attrs1);
+	print_details(ent);
+	attroff(attrs1);
 	addch(' ');
 
-	if (attrs)
-		attron(attrs);
-
-	/* Timestamp */
-	print_time(&ent->t);
-
-	addstr("  ");
-
-	/* Permissions */
-	addch('0' + ((ent->mode >> 6) & 7));
-	addch('0' + ((ent->mode >> 3) & 7));
-	addch('0' + (ent->mode & 7));
-
-	switch (ent->mode & S_IFMT) {
-	case S_IFDIR:
-		pair = C_DIR;
-		if (!g_state.oldcolor) {
-			attrs |= A_BOLD;
-			if (g_state.dirctx)
-				pair = cfg.curctx + 1;
-		}
-		ind2 = '/'; // fallthrough
-	case S_IFREG:
-		if (!ind2) {
-			if (ent->mode & 0100) {
-				pair = C_EXE;
-				ind2 = '*';
-			}
-
-			if (ent->flags & HARD_LINK) {
-				pair = C_HRD;
-				ln = TRUE;
-			}
-
-			if (!ent->size)
-				pair = C_UND;
-			else if (!pair)
-				pair = C_FIL;
-
-			if (!ind2) /* Add a column if end indicator is not needed */
-				++namecols;
-		}
-
-		size = coolsize(cfg.blkorder ? ent->blocks << blk_shift : ent->size);
-		len = 10 - (uint_t)xstrlen(size);
-		while (--len)
-			addch(' ');
-		addstr(size);
-		break;
-	case S_IFLNK:
-		ln = TRUE;
-		pair = (ent->flags & SYM_ORPHAN) ? C_ORP : C_LNK;
-		ind1 = '@';
-		ind2 = (ent->flags & DIR_OR_LINK_TO_DIR) ? '/' : '@';
-		if (ind2 == '/' && !g_state.oldcolor)
-			attrs |= A_BOLD; // fallthrough
-	case S_IFSOCK:
-		if (!ind1) {
-			pair = C_SOC;
-			ind1 = ind2 = '=';
-		} // fallthrough
-	case S_IFIFO:
-		if (!ind1) {
-			pair = C_PIP;
-			ind1 = ind2 = '|';
-		} // fallthrough
-	case S_IFBLK:
-		if (!ind1) {
-			pair = C_BLK;
-			ind1 = 'b';
-		} // fallthrough
-	case S_IFCHR:
-		if (!ind1) {
-			pair = C_CHR;
-			ind1 = 'c';
-		} // fallthrough
-	default:
-		if (!ind1) {
-			pair = C_UND;
-			ind1 = ind2 = '?';
-		}
-		addstr("        ");
-		addch(ind1);
-		break;
-	}
-
-	if (g_state.oldcolor) {
-		if (!sel)
-			attroff(A_DIM);
-		addstr(selgap);
-		if (!ln) {
-			attroff(A_DIM);
-			attrs ^= A_DIM;
-		}
-	} else {
-		if (!sel)
-			attroff(COLOR_PAIR(C_MIS));
-#ifndef ICONS_ENABLED
-		addstr(selgap);
-#endif
-		if (ent->flags & FILE_MISSING)
-			pair = C_MIS;
-		else {
-			attroff(COLOR_PAIR(C_MIS));
-			attrs ^= (COLOR_PAIR(C_MIS));
-		}
-
-		if (pair && fcolors[pair])
-			attrs |= COLOR_PAIR(pair);
-#ifdef ICONS_ENABLED
-		attroff(attrs);
-		addstr(selgap);
-		if (sel)
-			attrs &= ~A_REVERSE;
-		print_icon(ent, attrs);
-		if (sel)
-			attrs |= A_REVERSE;
-#endif
-		attron(attrs);
-	}
-
-#ifndef NOLOCALE
-	addwstr(unescape(ent->name, namecols));
-#else
-	addstr(unescape(ent->name, MIN(namecols, ent->nlen) + 1));
-#endif
-
-	if (attrs)
-		attroff(attrs);
-	if (ind2)
-		addch(ind2);
-	addch('\n');
+	printent(ent, namecols, sel);
 }
 
 static void (*printptr)(const struct entry *ent, uint_t namecols, bool sel) = &printent;
@@ -3845,7 +3771,7 @@ static void savecurctx(settings *curcfg, char *path, char *curname, int nextctx)
 			printptr = tmpcfg.showdetail ? &printent : &printent_long;
 
 		tmpcfg = ctxr->c_cfg;
-	} else { /* Setup a new context from current context */
+	} else { /* Set up a new context from current context */
 		ctxr->c_cfg.ctxactive = 1;
 		xstrsncpy(ctxr->c_path, path, PATH_MAX);
 		ctxr->c_last[0] = ctxr->c_name[0] = ctxr->c_fltr[0] = ctxr->c_fltr[1] = '\0';
@@ -4136,7 +4062,7 @@ static bool show_stats(const char *fpath, const struct stat *sb)
 			fprintf(fp, " %s\n  ", begin);
 
 #ifdef FILE_MIME_OPTS
-			/* Show the file mime type */
+			/* Show the file MIME type */
 			get_output(g_buf, CMD_LEN_MAX, "file", FILE_MIME_OPTS, fpath, FALSE);
 			fprintf(fp, "%s", g_buf);
 #endif
@@ -4168,9 +4094,9 @@ static size_t get_fs_info(const char *path, bool type)
 		return 0;
 
 	if (type == CAPACITY)
-		return svb.f_blocks << ffs((int)(svb.f_frsize >> 1));
+		return (size_t)svb.f_blocks << ffs((int)(svb.f_frsize >> 1));
 
-	return svb.f_bavail << ffs((int)(svb.f_frsize >> 1));
+	return (size_t)svb.f_bavail << ffs((int)(svb.f_frsize >> 1));
 }
 
 /* List or extract archive */
@@ -4746,7 +4672,10 @@ static void readpipe(int fd, char **path, char **lastname, char **lastdir)
 
 	if (g_buf[0] == '+')
 		ctx = (char)(get_free_ctx() + 1);
-	else if (g_buf[0] < '0')
+	else if (g_buf[0] == '-') { /* Clear selection on '-' */
+		clearselection();
+		return;
+	} else if (g_buf[0] < '0')
 		return;
 	else {
 		ctx = g_buf[0] - '0';
@@ -4976,11 +4905,13 @@ static void dentfree(void)
 
 static blkcnt_t dirwalk(char *path, struct stat *psb)
 {
+#ifndef __APPLE__
 	static uint_t open_max;
 
 	/* Increase current open file descriptor limit */
 	if (!open_max)
 		open_max = max_openfds();
+#endif
 
 	ent_blocks = 0;
 	tolastln();
@@ -4988,7 +4919,11 @@ static blkcnt_t dirwalk(char *path, struct stat *psb)
 	addstr(" [^C aborts]\n");
 	refresh();
 
+#ifndef __APPLE__
 	if (nftw(path, nftw_fn, open_max, FTW_MOUNT | FTW_PHYS) < 0) {
+#else
+	if (nftw(path, nftw_fn, OPEN_MAX, FTW_MOUNT | FTW_PHYS) < 0) {
+#endif
 		DPRINTF_S("nftw failed");
 		return cfg.apparentsz ? psb->st_size : psb->st_blocks;
 	}
@@ -5141,7 +5076,7 @@ static int dentfill(char *path, struct entry **ppdents)
 				dentp->name = pnamebuf;
 
 				for (int count = 1; count < n; ++dentp, ++count)
-					/* Current filename starts at last filename start + length */
+					/* Current file name starts at last file name start + length */
 					(dentp + 1)->name = (char *)((size_t)dentp->name + dentp->nlen);
 			}
 		}
@@ -5578,7 +5513,7 @@ static bool set_time_type(int *presel)
 
 			ret = TRUE;
 		} else
-			r = MSG_NOCHNAGE;
+			r = MSG_NOCHANGE;
 	} else
 		r = MSG_INVALID_KEY;
 
@@ -5613,7 +5548,7 @@ static void statusbar(char *path)
 	tolastln();
 	attron(COLOR_PAIR(cfg.curctx + 1));
 
-	printw("%d/%d ", cur + 1, ndents);
+	printw("%d/%s ", cur + 1, xitoa(ndents));
 
 	if (g_state.selmode) {
 		attron(A_REVERSE);
@@ -5641,7 +5576,7 @@ static void statusbar(char *path)
 		char sort[] = "\0\0\0\0\0";
 
 		if (getorderstr(sort))
-			printw("%s", sort);
+			addstr(sort);
 
 		/* Timestamp */
 		print_time(&pent->t);
@@ -5654,22 +5589,40 @@ static void statusbar(char *path)
 			struct passwd *pw = getpwuid(pent->uid);
 			struct group  *gr = getgrgid(pent->gid);
 
-			if (pw)
-				addstr(pw->pw_name);
-			else
-				addch('-');
-			addch(' ');
-
-			if (gr)
-				addstr(gr->gr_name);
-			else
-				addch('-');
+			addstr(pw ? pw->pw_name : xitoa(pent->uid));
+			addch(':');
+			addstr(gr ? gr->gr_name : xitoa(pent->gid));
 			addch(' ');
 		}
 #endif
-		addstr(coolsize(pent->size));
-		addch(' ');
-		addstr(ptr);
+		if (S_ISLNK(pent->mode))
+		{
+			i = readlink(pent->name, g_buf, PATH_MAX);
+
+			addstr(coolsize(i >= 0 ? i : pent->size)); /* Show symlink size */
+
+			if (i > 1) { /* Show symlink target */
+				g_buf[i] = '\0';
+				addstr(" ->");
+				addstr(g_buf);
+			}
+		} else {
+			addstr(coolsize(pent->size));
+			addch(' ');
+			addstr(ptr);
+			if (pent->flags & HARD_LINK)
+			{
+				struct stat sb;
+
+				if (stat(pent->name, &sb) != -1) {
+					addch(' ');
+					addstr(xitoa((int)sb.st_nlink)); /* Show number of links */
+					addch('-');
+					addstr(xitoa((int)sb.st_ino)); /* Show inode number */
+				}
+			}
+
+		}
 		addch('\n');
 	}
 
@@ -5679,28 +5632,27 @@ static void statusbar(char *path)
 		tocursor();
 }
 
-static int adjust_cols(int ncols)
+static int adjust_cols(int n)
 {
 	/* Calculate the number of cols available to print entry name */
 	if (cfg.showdetail) {
 		/* Fallback to light mode if less than 35 columns */
-		if (ncols < 36) {
+		if (n < 36) {
 			cfg.showdetail ^= 1;
 			printptr = &printent;
 		} else {
 			/* 3 more accounted for below */
-			ncols -= 32;
+			n -= 32;
 		}
 	}
 
-/* 3 = Preceding space, indicator, newline */
+	/* 3 = Preceding space, indicator, newline */
 #ifdef ICONS_ENABLED
-	ncols -= 3 + xstrlen(ICON_PADDING_LEFT) + xstrlen(ICON_PADDING_RIGHT) + 1;
+	return (n - (g_state.oldcolor ? 3
+			: 3 + xstrlen(ICON_PADDING_LEFT) + xstrlen(ICON_PADDING_RIGHT) + 1));
 #else
-	ncols -= 3;
+	return (n - 3);
 #endif
-
-	return ncols;
 }
 
 static void draw_line(char *path, int ncols)
@@ -5715,7 +5667,7 @@ static void draw_line(char *path, int ncols)
 	}
 
 	move(2 + last - curscroll, 0);
-	printptr(&pdents[last], ncols, false);
+	printptr(&pdents[last], ncols, FALSE);
 
 	if (g_state.oldcolor && (pdents[cur].flags & DIR_OR_LINK_TO_DIR)) {
 		if (!dir)  {/* First file is not a directory */
@@ -5728,7 +5680,7 @@ static void draw_line(char *path, int ncols)
 	}
 
 	move(2 + cur - curscroll, 0);
-	printptr(&pdents[cur], ncols, true);
+	printptr(&pdents[cur], ncols, TRUE);
 
 	/* Must reset e.g. no files in dir */
 	if (dir)
@@ -5745,7 +5697,6 @@ static void redraw(char *path)
 	int ncols = (xcols <= PATH_MAX) ? xcols : PATH_MAX;
 	int onscreen = xlines - 4;
 	int i;
-	char *ptr = path;
 
 	// Fast redraw
 	if (g_state.move) {
@@ -5789,15 +5740,23 @@ static void redraw(char *path)
 	attron(A_UNDERLINE | COLOR_PAIR(cfg.curctx + 1));
 
 	/* Print path */
-	i = (int)xstrlen(path);
+	bool in_home = set_tilde_in_path(path);
+	char *ptr = in_home ? &path[homelen - 1] : path;
+
+	i = (int)xstrlen(ptr);
 	if ((i + MIN_DISPLAY_COLS) <= ncols)
-		addnstr(path, ncols - MIN_DISPLAY_COLS);
+		addnstr(ptr, ncols - MIN_DISPLAY_COLS);
 	else {
-		char *base = xmemrchr((uchar_t *)path, '/', i);
+		char *base = xmemrchr((uchar_t *)ptr, '/', i);
 
-		i = 0;
+		if (in_home) {
+			addch(*ptr);
+			++ptr;
+			i = 1;
+		} else
+			i = 0;
 
-		if (base != ptr) {
+		if (ptr && (base != ptr)) {
 			while (ptr < base) {
 				if (*ptr == '/') {
 					i += 2; /* 2 characters added */
@@ -5813,8 +5772,12 @@ static void redraw(char *path)
 			}
 		}
 
-		addnstr(base, ncols - (MIN_DISPLAY_COLS + i));
+		if (base)
+			addnstr(base, ncols - (MIN_DISPLAY_COLS + i));
 	}
+
+	if (in_home)
+		reset_tilde_in_path(path);
 
 	attroff(A_UNDERLINE | COLOR_PAIR(cfg.curctx + 1));
 
@@ -5870,9 +5833,9 @@ static bool cdprep(char *lastdir, char *lastname, char *path, char *newpath)
 
 static bool browse(char *ipath, const char *session, int pkey)
 {
-	char newpath[PATH_MAX] __attribute__ ((aligned));
-	char rundir[PATH_MAX] __attribute__ ((aligned));
-	char runfile[NAME_MAX + 1] __attribute__ ((aligned));
+	char newpath[PATH_MAX] __attribute__ ((aligned)),
+	     rundir[PATH_MAX] __attribute__ ((aligned)),
+	     runfile[NAME_MAX + 1] __attribute__ ((aligned));
 	char *path, *lastdir, *lastname, *dir, *tmp;
 	pEntry pent;
 	enum action sel;
@@ -5898,7 +5861,7 @@ static bool browse(char *ipath, const char *session, int pkey)
 	xcols = COLS;
 
 #ifndef NOSSN
-	/* setup first context */
+	/* set-up first context */
 	if (!session || !load_session(session, &path, &lastdir, &lastname, FALSE)) {
 #else
 		(void)session;
@@ -5912,7 +5875,7 @@ static bool browse(char *ipath, const char *session, int pkey)
 		} else
 			g_ctx[0].c_name[0] = '\0';
 
-		lastname = g_ctx[0].c_name; /* last visited filename */
+		lastname = g_ctx[0].c_name; /* last visited file name */
 
 		xstrsncpy(g_ctx[0].c_path, ipath, PATH_MAX);
 		/* If the initial path is a file, retain a way to return to start dir */
@@ -5951,6 +5914,17 @@ begin:
 		setdirwatch();
 	}
 
+	if (cfg.x11) {
+		/* Set terminal window title */
+		r = set_tilde_in_path(path);
+
+		printf("\033]2;%s\007", r ? &path[homelen - 1] : path);
+		fflush(stdout);
+
+		if (r)
+			reset_tilde_in_path(path);
+	}
+
 	if (g_state.selmode && lastdir[0])
 		lastappendpos = selbufpos;
 
@@ -5976,9 +5950,7 @@ begin:
 
 	populate(path, lastname);
 	if (g_state.interrupt) {
-		g_state.interrupt = 0;
-		cfg.apparentsz = 0;
-		cfg.blkorder = 0;
+		g_state.interrupt = cfg.apparentsz = cfg.blkorder = 0;
 		blk_shift = BLK_SHIFT_512;
 		presel = CONTROL('L');
 	}
@@ -6253,7 +6225,6 @@ nochange:
 					if (runfile[0])
 						runfile[0] = '\0';
 					clearfilter();
-					clearselection();
 					setdirwatch();
 					goto begin;
 				}
@@ -6265,12 +6236,12 @@ nochange:
 			}
 
 			if (cfg.useeditor
-#ifdef FILE_MIME
+#ifdef FILE_MIME_OPTS
 			    && get_output(g_buf, CMD_LEN_MAX, "file", FILE_MIME_OPTS, newpath, FALSE)
 			    && is_prefix(g_buf, "text/", 5)
 #else
-			    /* no mime option; guess from description instead */
-			    && get_output(g_buf, CMD_LEN_MAX, "file", "-b", newpath, FALSE)
+			    /* no MIME option; guess from description instead */
+			    && get_output(g_buf, CMD_LEN_MAX, "file", "-bL", newpath, FALSE)
 			    && strstr(g_buf, "text")
 #endif
 			) {
@@ -6736,7 +6707,6 @@ nochange:
 						continue;
 
 					copynextname(lastname);
-					clearselection();
 
 					if (cfg.filtermode || filterset())
 						presel = FILTER;
@@ -6987,8 +6957,6 @@ nochange:
 					printwait(messages[MSG_FAILED], &presel);
 					goto nochange;
 				}
-
-				clearselection();
 
 				if (ndents)
 					copycurname();
@@ -7431,12 +7399,13 @@ static void usage(void)
 #endif
 		" -t secs timeout to lock\n"
 		" -T key  sort order [a/d/e/r/s/t/v]\n"
+		" -u      use selection (no prompt)\n"
 #ifndef NOUG
 		" -U      show user and group\n"
 #endif
 		" -V      show version\n"
 		" -w      place HW cursor on hovered\n"
-		" -x      notis, sel to system clipboard\n"
+		" -x      notis, sel to clipboard, xterm title\n"
 		" -h      show help\n\n"
 		"v%s\n%s\n", __func__, VERSION, GENERAL_INFO);
 }
@@ -7543,6 +7512,10 @@ static bool set_tmp_path(void)
 
 static void cleanup(void)
 {
+	if (cfg.x11) {
+		printf("\033[23;0t"); /* reset terminal window title */
+		fflush(stdout);
+	}
 	free(selpath);
 	free(plgpath);
 	free(cfgpath);
@@ -7587,7 +7560,7 @@ int main(int argc, char *argv[])
 
 	while ((opt = (env_opts_id > 0
 		       ? env_opts[--env_opts_id]
-		       : getopt(argc, argv, "aAb:cCdDeEfFgHJKl:nop:P:QrRs:St:T:UVwxh"))) != -1) {
+		       : getopt(argc, argv, "aAb:cCdDeEfFgHJKl:nop:P:QrRs:St:T:uUVwxh"))) != -1) {
 		switch (opt) {
 #ifndef NOFIFO
 		case 'a':
@@ -7703,6 +7676,9 @@ int main(int argc, char *argv[])
 			if (env_opts_id < 0)
 				sort = (uchar_t)optarg[0];
 			break;
+		case 'u':
+			cfg.prefersel = 1;
+			break;
 		case 'U':
 			g_state.uidgid = 1;
 			break;
@@ -7757,6 +7733,7 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 	DPRINTF_S(home);
+	homelen = (uchar_t)xstrlen(home);
 
 	if (!setup_config())
 		return EXIT_FAILURE;
@@ -7953,6 +7930,12 @@ int main(int argc, char *argv[])
 		read_history(g_buf);
 	}
 #endif
+
+	if (cfg.x11) {
+		/* Save terminal window title */
+		printf("\033[22;0t");
+		fflush(stdout);
+	}
 
 #ifndef NOMOUSE
 	if (!initcurses(&mask))
